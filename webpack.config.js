@@ -61,7 +61,7 @@ module.exports = {
             'resources',
             'app'
         ],
-        extensions: ['.js', '.json', '']
+        extensions: ['.js', '.jsx', '.json', '']
     },
     plugins: [
         new ExtractTextPlugin('styles.css')
