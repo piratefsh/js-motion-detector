@@ -18,6 +18,7 @@
     "file-loader": "^0.8.4",
     "less": "^2.5.3",
     "less-loader": "^2.2.1",
+    "node-sass": "^3.4.2",
     "sass-loader": "^3.0.0",
     "style-loader": "^0.12.4",
     "url-loader": "^0.5.6",
