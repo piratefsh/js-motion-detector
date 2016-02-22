@@ -10,22 +10,26 @@ export default class MotionDetect{
         // shadow canvas to draw video frames before processing
         const shadowCanvas = document.createElement('canvas');
         this.shadow = shadowCanvas.getContext('2d');
-        document.body.appendChild(this.shadow.canvas);
+        // document.body.appendChild(this.shadow.canvas);
 
         // scratchpad
         const scratchpad = document.createElement('canvas');
         this.scratch = scratchpad.getContext('2d');
-        document.body.appendChild(this.scratch.canvas);
+        // document.body.appendChild(this.scratch.canvas);
 
         // scale canvas
         this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        this.ctx.scale(-1, 1);
 
+        // actual canvas size
         this.size = {
             x: window.innerWidth,
             y: window.innerHeight
         }
-        this.shadowSize = {
-            x: 400,
+
+        // size to work with image on
+        this.workingSize = {
+            x: 300,
             y: 300
         }
 
@@ -40,7 +44,7 @@ export default class MotionDetect{
             curr: null
         }
 
-        this.thresh = this.makeThresh(80);
+        this.thresh = this.makeThresh(60);
     }
 
 
@@ -90,17 +94,16 @@ export default class MotionDetect{
             y: Math.floor(y)
         }
 
-        const shadowY = Math.floor(this.size.y/this.size.x * this.shadowSize.x);
-        this.shadowSize = {
+        const shadowY = Math.floor(this.size.y/this.size.x * this.workingSize.x);
+        this.workingSize = {
             x: 300,
             y: shadowY
         }
-        console.log(this.shadowSize);
 
         this.canvas.width = this.size.x;
         this.canvas.height = this.size.y;
-        this.shadow.canvas.width = this.shadowSize.x;
-        this.shadow.canvas.height = this.shadowSize.y;
+        this.shadow.canvas.width = this.workingSize.x;
+        this.shadow.canvas.height = this.workingSize.y;
         this.scratch.canvas.width = this.size.x;
         this.scratch.canvas.height = this.size.y;
     }
@@ -109,16 +112,18 @@ export default class MotionDetect{
     tick() {
         this.update();
         this.draw();
-
-        requestAnimationFrame(this.tick.bind(this));
+        setTimeout(()=>{
+            requestAnimationFrame(this.tick.bind(this));
+        }, 1000/60);
     }
 
     // update and save frame data
     update(){
         // draw frame
-        const sw = this.shadowSize.x;
-        const sh = this.shadowSize.y;
+        const sw = this.workingSize.x;
+        const sh = this.workingSize.y;
         this.shadow.drawImage(this.video, 0, 0, sw, sh);
+        this.ctx.drawImage(this.video, 0, 0, this.size.x, this.size.y);
 
         // update data
         this.frames.prev = this.frames.curr;
@@ -128,18 +133,45 @@ export default class MotionDetect{
     // draw video and animation
     draw(){
         // find difference between frames
-        const diff = this.frameDiff(this.frames.prev, this.frames.curr);
-
+        const hasDiff = this.frameDiff(this.frames.prev, this.frames.curr);
+        
         // draw difference
-        if(diff){
+        if(hasDiff){
+            let [tl, br, count, diff] = hasDiff;
             this.scratch.putImageData(diff, 0, 0);
 
             const scale = {
-                x: this.size.x/this.shadowSize.x, 
-                y: this.size.y/this.shadowSize.y
+                x: this.size.x/this.workingSize.x, 
+                y: this.size.y/this.workingSize.y
             }
 
-            this.ctx.drawImage(this.scratch.canvas, 0, 0, this.shadowSize.x, this.shadowSize.y, 0, 0, this.size.x, this.size.y);
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            this.ctx.rect(0, 0, this.size.x, this.size.y);
+            this.ctx.fill();
+
+            // draw diff
+            this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
+
+            // if significant enough change
+            const totalPix = diff.data.length/4;
+            if(count/totalPix < 0.01){ return }
+
+            // draw rect
+            const size = {
+                x: br.x - tl.x,
+                y: br.y - tl.y
+            }
+
+            this.ctx.save();
+            this.ctx.scale(scale.x, scale.y);
+            this.ctx.beginPath();
+            this.ctx.rect(tl.x, tl.y, size.x, size.y);
+            this.ctx.closePath();
+            this.ctx.restore();
+
+            this.ctx.strokeStyle = 'red';
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+            this.ctx.fill();
         }
     }
 
@@ -162,6 +194,12 @@ export default class MotionDetect{
         const pixels = new Array(prev.length);
 
         i = 0;
+
+        let tl = {x: Infinity, y: Infinity};
+        let br = {x: -1, y: -1};
+
+        let count = 0;
+
         while(i < p.length/4){
             j = i * 4;
 
@@ -173,13 +211,25 @@ export default class MotionDetect{
             pixels[j] = diff;
             pixels[j+1] = diff;
             pixels[j+2] = diff;
-            pixels[j+3] = 255;
+            pixels[j+3] = diff;
 
             i++;
+
+            if(diff){
+                const x = i % this.workingSize.x;
+                const y = Math.floor(i/this.workingSize.x);
+                tl.x = Math.min(tl.x, x);
+                tl.y = Math.min(tl.y, y);
+                br.x = Math.max(br.x, x);
+                br.y = Math.max(br.y, y);
+
+                // count pix movement
+                count++
+            }
         }
 
         const arr = new Uint8ClampedArray(pixels);
-        return new ImageData(arr, this.shadowSize.x);
+        return [tl, br, count, new ImageData(arr, this.workingSize.x)];
     }
 }
 
