@@ -1,3 +1,4 @@
-import test from './test'
+import MotionDetect from './components/MotionDetect'
 import 'styles/style.scss' 
-test()
+
+const md = new MotionDetect('src', 'dest');
