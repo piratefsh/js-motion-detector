@@ -5,7 +5,7 @@ export default class MotionDetect{
     constructor(srcId, dstId) {
         // setup video
         this.video = document.getElementById(srcId);
-        this.fps = 60;
+        this.fps = 30;
 
         // setup canvas
         this.canvas = document.getElementById(dstId);
@@ -60,10 +60,10 @@ export default class MotionDetect{
         this.thresh = this.makeThresh(60);
 
         // fraction of number of pixels of change
-        this.movementThreshold = 0.012;
+        this.movementThreshold = 0.01;
 
         // this.frameDiff = this.time(this.frameDiff);
-        this.spawnGridDetector = this.time(this.spawnGridDetector);
+        // this.spawnGridDetector = this.time(this.spawnGridDetector);
 
         this.pause = false;
         this.debug();
