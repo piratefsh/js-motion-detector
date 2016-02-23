@@ -33,7 +33,7 @@ export default class MotionDetect{
 
         // size to work with image on
         this.workingSize = {
-            x: 300,
+            x: this.size.x,
             y: 300,
         };
 
@@ -51,7 +51,7 @@ export default class MotionDetect{
         // set difference threshold
         this.thresh = this.makeThresh(60);
 
-        // this.frameDiff = this.time(this.frameDiff);
+        this.frameDiff = this.time(this.frameDiff);
 
         this.test();
     }
@@ -201,7 +201,7 @@ export default class MotionDetect{
 
         // thresholding function
         const thresh = this.thresh;
-        const pixels = new Array(prev.length);
+        const pixels = new Uint8ClampedArray(prev.data.length);
 
 
         // save bounds of movement
@@ -240,9 +240,7 @@ export default class MotionDetect{
                 count++;
             }
         }
-
-        const arr = new Uint8ClampedArray(pixels);
-        return [tl, br, count, new ImageData(arr, this.workingSize.x)];
+        return [tl, br, count, new ImageData(pixels, this.workingSize.x)];
     }
 
     time(f) {
