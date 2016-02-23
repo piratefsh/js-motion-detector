@@ -5,7 +5,7 @@ export default class MotionDetect{
     constructor(srcId, dstId) {
         // setup video
         this.video = document.getElementById(srcId);
-        this.fps = 30;
+        this.fps = 60;
 
         // setup canvas
         this.canvas = document.getElementById(dstId);
@@ -41,9 +41,9 @@ export default class MotionDetect{
 
         // griddetector size
         this.gdSize = {
-            x: 16,
-            y: 12,
-        }
+            x: 16 * 2,
+            y: 12 * 2,
+        };
 
         // size canvas
         this.resize(this.size.x, this.size.y);
@@ -70,7 +70,6 @@ export default class MotionDetect{
     }
 
     init() {
-
 
         // success callback
         const onGetUserMediaSuccess = (stream) => {
@@ -135,16 +134,17 @@ export default class MotionDetect{
         // griddetector stuff
         this.gd = new GridDetect(this.gdSize, {
             x: this.size.x,
-            y: this.size.y
+            y: this.size.y,
         });
     }
 
     // main loop
     tick() {
-        if(!this.pause){
+        if (!this.pause) {
             this.update();
             this.draw();
         }
+
         setTimeout(()=> {
             requestAnimationFrame(this.tick.bind(this));
         }, 1000 / this.fps);
@@ -155,8 +155,16 @@ export default class MotionDetect{
         // draw frame on shadow and canvas
         const sw = this.workingSize.x;
         const sh = this.workingSize.y;
-        this.shadow.drawImage(this.video, 0, 0, sw, sh);
-        this.ctx.drawImage(this.video, 0, 0, this.size.x, this.size.y);
+
+        this.shadow.save();
+        this.shadow.scale(-1, 1);
+        this.shadow.drawImage(this.video, 0, 0, -sw, sh);
+        this.shadow.restore();
+
+        this.ctx.save();
+        this.ctx.scale(-1, 1);
+        this.ctx.drawImage(this.video, 0, 0, -this.size.x, this.size.y);
+        this.ctx.restore();
 
         // update data
         this.frames.prev = this.frames.curr;
@@ -177,8 +185,9 @@ export default class MotionDetect{
         const count = result.count;
         const diff = result.imageData;
 
-        // put diff on scratch pad (can't draw straight on canvas  
+        // put diff on scratch pad (can't draw straight on canvas
         // because can only scale with drawImage)
+
         this.scratch.putImageData(diff, 0, 0);
 
         // draw diff
@@ -315,8 +324,8 @@ export default class MotionDetect{
         this.drawGrid({
             grid: results,
             gridSize: this.gd.gridSize,
-            cellSize: this.gd.cellSize
-        })
+            cellSize: this.gd.cellSize,
+        });
     }
 
     drawGrid(data) {
@@ -325,34 +334,32 @@ export default class MotionDetect{
         const grid = data.grid;
         const cs = data.cellSize;
 
-        const cellArea = data.cellSize.x*data.cellSize.y;
+        const cellArea = data.cellSize.x * data.cellSize.y;
 
-        this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.0)'
-        // this.ctx.scale(this.size.x/gs.x, this.size.y/gs.y);
-        for(let coord in grid){
+        this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.0)';
+        for (let coord in grid) {
             let [x, y] = coord.split(',');
 
             let cell = grid[coord];
-            let intensity = cell/cellArea;
-            this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.2+intensity})` : 'transparent';
+            let intensity = cell / cellArea;
+            this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.2 + intensity})` : 'transparent';
 
-            this.ctx.beginPath()
-            this.ctx.rect(x*cs.x, y*cs.y, cs.x, cs.y);
-            // this.ctx.rect(y*cs.y, x*cs.x, cs.y, cs.x);
-            this.ctx.closePath()
+            this.ctx.beginPath();
+            this.ctx.rect(x * cs.x, y * cs.y, cs.x, cs.y);
+            this.ctx.closePath();
             this.ctx.stroke();
             this.ctx.fill();
         }
+
         this.ctx.restore();
     }
 
-    debug(){
-        document.addEventListener("keydown", ()=>{
-            console.log('paused')
+    debug() {
+        document.addEventListener('keydown', ()=> {
+            console.log('paused');
             this.pause = !this.pause;
         }, false);
     }
-
 
 }
 
