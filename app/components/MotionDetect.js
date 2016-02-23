@@ -51,9 +51,10 @@ export default class MotionDetect{
         // set difference threshold
         this.thresh = this.makeThresh(60);
 
-        this.frameDiff = this.time(this.frameDiff);
+        // fraction of number of pixels of change
+        this.movementThreshold = 0.01;
 
-        this.test();
+        // this.frameDiff = this.time(this.frameDiff);
     }
 
     init() {
@@ -145,43 +146,51 @@ export default class MotionDetect{
         // find difference between frames
         const hasDiff = this.frameDiff(this.frames.prev, this.frames.curr);
 
+        // return if no difference found
+        if (!hasDiff) { return; }
+        
         // draw difference
-        if (hasDiff) {
-            let [tl, br, count, diff] = hasDiff;
-            this.scratch.putImageData(diff, 0, 0);
+        let [tl, br, count, diff] = hasDiff;
+        this.scratch.putImageData(diff, 0, 0);
 
-            const scale = {
-                x: -this.size.x / this.workingSize.x,
-                y: this.size.y / this.workingSize.y,
-            };
+        // draw diff
+        this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
 
-            // draw diff
-            this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
+        // drop if change if negligible
+        const totalPix = diff.data.length / 4;
+        
+        if (count / totalPix < this.movementThreshold) { return; }
 
-            // if significant enough change
-            const totalPix = diff.data.length / 4;
-            if (count / totalPix < 0.01) { return; }
+        // draw rect
+        this.drawMotionRect(tl, br);
+    }
 
-            // draw rect
-            const size = {
-                x: br.x - tl.x,
-                y: br.y - tl.y,
-            };
+    drawMotionRect(tl, br){
+        const scale = {
+            x: this.size.x / this.workingSize.x,
+            y: this.size.y / this.workingSize.y,
+        };
 
-            this.ctx.save();
-            // scale up from working size
-            this.ctx.scale(scale.x, scale.y);
-            this.ctx.beginPath();
+        const size = {
+            x: br.x - tl.x,
+            y: br.y - tl.y,
+        };
 
-            // draw motion area
-            this.ctx.rect(tl.x, tl.y, size.x, size.y);
-            this.ctx.closePath();
-            this.ctx.restore();
+        this.ctx.save();
 
-            this.ctx.strokeStyle = 'red';
-            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-            this.ctx.fill();
-        }
+        // scale up from working size
+        this.ctx.scale(scale.x, scale.y);
+        this.ctx.beginPath();
+
+        // draw motion area
+        this.ctx.rect(tl.x, tl.y, size.x, size.y);
+        this.ctx.closePath();
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.fill();
+        this.ctx.restore();
+
+        this.ctx.strokeStyle = 'red';
+
     }
 
     // bitwise absolute and threshold
@@ -201,10 +210,10 @@ export default class MotionDetect{
 
         // thresholding function
         const thresh = this.thresh;
-        const pixels = new Uint8ClampedArray(prev.data.length);
+        const pixels = new Uint8ClampedArray(p.length);
 
 
-        // save bounds of movement
+        // save top left and bottom right bounds of movement
         let tl = {x: Infinity, y: Infinity};
         let br = {x: -1, y: -1};
 
@@ -243,6 +252,8 @@ export default class MotionDetect{
         return [tl, br, count, new ImageData(pixels, this.workingSize.x)];
     }
 
+
+    // returns function that times it's execution
     time(f) {
         let start, end;
 
