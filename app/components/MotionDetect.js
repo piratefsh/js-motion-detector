@@ -45,6 +45,7 @@ export default class MotionDetect{
         }
 
         this.thresh = this.makeThresh(60);
+        // this.frameDiff = this.time(this.frameDiff);
     }
 
 
@@ -230,6 +231,20 @@ export default class MotionDetect{
 
         const arr = new Uint8ClampedArray(pixels);
         return [tl, br, count, new ImageData(arr, this.workingSize.x)];
+    }
+
+    time(f){
+        let start, end;
+
+        return function(){
+            start = new Date();
+            const res = f.apply(this, arguments);
+            end = new Date();
+            console.log('time', end-start);
+
+            return res;
+        }.bind(this);
+
     }
 }
 
