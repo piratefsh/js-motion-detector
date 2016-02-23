@@ -127,7 +127,7 @@ export default class MotionDetect{
 
     // update and save frame data
     update() {
-        // draw frame
+        // draw frame on shadow and canvas
         const sw = this.workingSize.x;
         const sh = this.workingSize.y;
         this.shadow.drawImage(this.video, 0, 0, sw, sh);
@@ -149,13 +149,9 @@ export default class MotionDetect{
             this.scratch.putImageData(diff, 0, 0);
 
             const scale = {
-                x: this.size.x / this.workingSize.x,
+                x: -this.size.x / this.workingSize.x,
                 y: this.size.y / this.workingSize.y,
             };
-
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            this.ctx.rect(0, 0, this.size.x, this.size.y);
-            this.ctx.fill();
 
             // draw diff
             this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
@@ -171,8 +167,11 @@ export default class MotionDetect{
             };
 
             this.ctx.save();
+            // scale up from working size
             this.ctx.scale(scale.x, scale.y);
             this.ctx.beginPath();
+
+            // draw motion area
             this.ctx.rect(tl.x, tl.y, size.x, size.y);
             this.ctx.closePath();
             this.ctx.restore();
@@ -198,16 +197,19 @@ export default class MotionDetect{
         const p = prev.data;
         const c = curr.data;
 
+        // thresholding function
         const thresh = this.thresh;
         const pixels = new Array(prev.length);
 
-        i = 0;
 
+        // save bounds of movement
         let tl = {x: Infinity, y: Infinity};
         let br = {x: -1, y: -1};
 
         let count = 0;
 
+        // for each pixel, find if average excees thresh
+        i = 0;
         while (i < p.length / 4) {
             j = i * 4;
 
@@ -223,6 +225,7 @@ export default class MotionDetect{
 
             i++;
 
+            // if there is a difference, update bounds
             if (diff) {
                 const x = i % this.workingSize.x;
                 const y = Math.floor(i / this.workingSize.x);
