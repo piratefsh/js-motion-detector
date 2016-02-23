@@ -102,12 +102,14 @@ export default class MotionDetect{
             y: Math.floor(y),
         };
 
+        // scale working size
         const shadowY = Math.floor(this.size.y / this.size.x * this.workingSize.x);
         this.workingSize = {
-            x: 300,
+            x: this.workingSize.x,
             y: shadowY,
         };
 
+        // resize canvases
         this.canvas.width = this.size.x;
         this.canvas.height = this.size.y;
         this.shadow.canvas.width = this.workingSize.x;
