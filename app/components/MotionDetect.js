@@ -1,4 +1,4 @@
-// import GridDetectWorker from 'worker!./GridDetectWorker';
+import GridDetectWorker from 'worker!./GridDetectWorker';
 import GridDetect from './GridDetect';
 
 export default class MotionDetect{
@@ -130,12 +130,6 @@ export default class MotionDetect{
         this.shadow.canvas.height = this.workingSize.y;
         this.scratch.canvas.width = this.size.x;
         this.scratch.canvas.height = this.size.y;
-
-        // griddetector stuff
-        this.gd = new GridDetect(this.gdSize, {
-            x: this.size.x,
-            y: this.size.y,
-        });
     }
 
     // main loop
@@ -310,22 +304,20 @@ export default class MotionDetect{
     }
 
     spawnGridDetector(imageData) {
-        // const worker = new GridDetectWorker();
-        // worker.postMessage({
-        //     imageData: imageData,
-        //     gridSize: {
-        //         x: 5,
-        //         y: 5,
-        //     }
-        // });
-        // worker.onmessage = (e) => {this.drawGrid(e.data)}
-
-        const results = this.gd.detect(imageData);
-        this.drawGrid({
-            grid: results,
-            gridSize: this.gd.size,
-            cellSize: this.gd.cellSize,
+        const worker = new GridDetectWorker();
+        worker.postMessage({
+            imageData: imageData,
+            gdSize: this.gdSize,
+            imgSize: this.size,
         });
+
+        worker.onmessage = (e) => {
+            this.drawGrid({
+                grid: e.data.results,
+                gridSize: e.data.gd.size,
+                cellSize: e.data.gd.cellSize,
+            });
+        }
     }
 
     drawGrid(data) {
