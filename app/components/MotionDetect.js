@@ -1,9 +1,11 @@
-import ContourDetectWorker from 'worker!./ContourDetectWorker';
+// import GridDetectWorker from 'worker!./GridDetectWorker';
+import GridDetect from './GridDetect';
 
 export default class MotionDetect{
     constructor(srcId, dstId) {
         // setup video
         this.video = document.getElementById(srcId);
+        this.fps = 30;
 
         // setup canvas
         this.canvas = document.getElementById(dstId);
@@ -37,6 +39,12 @@ export default class MotionDetect{
             y: 300,
         };
 
+        // griddetector size
+        this.gdSize = {
+            x: 16,
+            y: 12,
+        }
+
         // size canvas
         this.resize(this.size.x, this.size.y);
 
@@ -52,12 +60,18 @@ export default class MotionDetect{
         this.thresh = this.makeThresh(60);
 
         // fraction of number of pixels of change
-        this.movementThreshold = 0.01;
+        this.movementThreshold = 0.012;
 
         // this.frameDiff = this.time(this.frameDiff);
+        this.spawnGridDetector = this.time(this.spawnGridDetector);
+
+        this.pause = false;
+        this.debug();
     }
 
     init() {
+
+
         // success callback
         const onGetUserMediaSuccess = (stream) => {
             this.video.src = window.URL.createObjectURL(stream);
@@ -117,15 +131,23 @@ export default class MotionDetect{
         this.shadow.canvas.height = this.workingSize.y;
         this.scratch.canvas.width = this.size.x;
         this.scratch.canvas.height = this.size.y;
+
+        // griddetector stuff
+        this.gd = new GridDetect(this.gdSize, {
+            x: this.size.x,
+            y: this.size.y
+        });
     }
 
     // main loop
     tick() {
-        this.update();
-        this.draw();
+        if(!this.pause){
+            this.update();
+            this.draw();
+        }
         setTimeout(()=> {
             requestAnimationFrame(this.tick.bind(this));
-        }, 1000 / 60);
+        }, 1000 / this.fps);
     }
 
     // update and save frame data
@@ -144,28 +166,36 @@ export default class MotionDetect{
     // draw video and animation
     draw() {
         // find difference between frames
-        const hasDiff = this.frameDiff(this.frames.prev, this.frames.curr);
+        const result  = this.frameDiff(this.frames.prev, this.frames.curr);
 
         // return if no difference found
-        if (!hasDiff) { return; }
-        
+        if (!result) { return; }
+
         // draw difference
-        let [tl, br, count, diff] = hasDiff;
+        const tl = result.position.tl;
+        const br = result.position.br;
+        const count = result.count;
+        const diff = result.imageData;
+
+        // put diff on scratch pad (can't draw straight on canvas  
+        // because can only scale with drawImage)
         this.scratch.putImageData(diff, 0, 0);
 
         // draw diff
-        this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
+        // this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
 
         // drop if change if negligible
         const totalPix = diff.data.length / 4;
-        
+
         if (count / totalPix < this.movementThreshold) { return; }
 
         // draw rect
-        this.drawMotionRect(tl, br);
+        //this.drawMotionRect(tl, br);
+
+        this.spawnGridDetector(diff);
     }
 
-    drawMotionRect(tl, br){
+    drawMotionRect(tl, br) {
         const scale = {
             x: this.size.x / this.workingSize.x,
             y: this.size.y / this.workingSize.y,
@@ -179,7 +209,7 @@ export default class MotionDetect{
         this.ctx.save();
 
         // scale up from working size
-        this.ctx.scale(scale.x, scale.y);
+        // this.ctx.scale(scale.x, scale.y);
         this.ctx.beginPath();
 
         // draw motion area
@@ -188,9 +218,6 @@ export default class MotionDetect{
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         this.ctx.fill();
         this.ctx.restore();
-
-        this.ctx.strokeStyle = 'red';
-
     }
 
     // bitwise absolute and threshold
@@ -212,7 +239,6 @@ export default class MotionDetect{
         const thresh = this.thresh;
         const pixels = new Uint8ClampedArray(p.length);
 
-
         // save top left and bottom right bounds of movement
         let tl = {x: Infinity, y: Infinity};
         let br = {x: -1, y: -1};
@@ -230,7 +256,7 @@ export default class MotionDetect{
             diff = thresh(avgC - avgP);
 
             pixels[j] = diff;
-            pixels[j + 1] = diff;
+            pixels[j + 1] = 0;
             pixels[j + 2] = diff;
             pixels[j + 3] = diff;
 
@@ -249,9 +275,15 @@ export default class MotionDetect{
                 count++;
             }
         }
-        return [tl, br, count, new ImageData(pixels, this.workingSize.x)];
-    }
 
+        return {
+            position: {
+                tl: tl,
+                br: br,
+            },
+            count: count,
+            imageData: new ImageData(pixels, this.workingSize.x), };
+    }
 
     // returns function that times it's execution
     time(f) {
@@ -268,9 +300,59 @@ export default class MotionDetect{
 
     }
 
-    test() {
-        const worker = new ContourDetectWorker();
-        worker.postMessage('ola');
+    spawnGridDetector(imageData) {
+        // const worker = new GridDetectWorker();
+        // worker.postMessage({
+        //     imageData: imageData,
+        //     gridSize: {
+        //         x: 5,
+        //         y: 5,
+        //     }
+        // });
+        // worker.onmessage = (e) => {this.drawGrid(e.data)}
+
+        const results = this.gd.detect(imageData);
+        this.drawGrid({
+            grid: results,
+            gridSize: this.gd.gridSize,
+            cellSize: this.gd.cellSize
+        })
     }
+
+    drawGrid(data) {
+        this.ctx.save();
+        const gs = data.gridSize;
+        const grid = data.grid;
+        const cs = data.cellSize;
+
+        const cellArea = data.cellSize.x*data.cellSize.y;
+
+        this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.0)'
+        // this.ctx.scale(this.size.x/gs.x, this.size.y/gs.y);
+        for(let coord in grid){
+            let [x, y] = coord.split(',');
+
+            let cell = grid[coord];
+            let intensity = cell/cellArea;
+            this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.2+intensity})` : 'transparent';
+
+            this.ctx.beginPath()
+            this.ctx.rect(x*cs.x, y*cs.y, cs.x, cs.y);
+            // this.ctx.rect(y*cs.y, x*cs.x, cs.y, cs.x);
+            this.ctx.closePath()
+            this.ctx.stroke();
+            this.ctx.fill();
+        }
+        this.ctx.restore();
+    }
+
+    debug(){
+        document.addEventListener("keydown", ()=>{
+            console.log('paused')
+            this.pause = !this.pause;
+        }, false);
+    }
+
+
 }
 
