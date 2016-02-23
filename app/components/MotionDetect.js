@@ -41,8 +41,8 @@ export default class MotionDetect{
 
         // griddetector size
         this.gdSize = {
-            x: 16 * 2,
-            y: 12 * 2,
+            x: 8*2,
+            y: 6*2,
         };
 
         // size canvas
@@ -259,8 +259,8 @@ export default class MotionDetect{
         while (i < p.length / 4) {
             j = i * 4;
 
-            avgC = ((c[j] + c[j + 1] + c[j + 2]) / 3);
-            avgP = ((p[j] + p[j + 1] + p[j + 2]) / 3);
+            avgC = 0.2126*c[j] + 0.7152*c[j + 1] + 0.0722*c[j + 2];
+            avgP = 0.2126*p[j] + 0.7152*p[j + 1] + 0.0722*p[j + 2];
 
             diff = thresh(avgC - avgP);
 
@@ -323,7 +323,7 @@ export default class MotionDetect{
         const results = this.gd.detect(imageData);
         this.drawGrid({
             grid: results,
-            gridSize: this.gd.gridSize,
+            gridSize: this.gd.size,
             cellSize: this.gd.cellSize,
         });
     }
@@ -337,19 +337,20 @@ export default class MotionDetect{
         const cellArea = data.cellSize.x * data.cellSize.y;
 
         this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.0)';
-        for (let coord in grid) {
-            let [x, y] = coord.split(',');
 
-            let cell = grid[coord];
+        grid.forEach((cell, i) => {
+            const x = Math.floor(i/gs.x);
+            const y = i%gs.x;
             let intensity = cell / cellArea;
-            this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.2 + intensity})` : 'transparent';
+
+            this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.1 + intensity})` : 'transparent';
 
             this.ctx.beginPath();
             this.ctx.rect(x * cs.x, y * cs.y, cs.x, cs.y);
             this.ctx.closePath();
             this.ctx.stroke();
             this.ctx.fill();
-        }
+        })
 
         this.ctx.restore();
     }

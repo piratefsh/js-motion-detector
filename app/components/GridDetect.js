@@ -13,12 +13,7 @@ export default class GridDetect{
 
     detect(imageData) {
         const pixels = imageData.data;
-        const results = {};
-        for(let i = 0; i < this.size.x; i++){
-            for(let j = 0; j < this.size.y; j++){
-                results[[i, j]] = 0;
-            }
-        }
+        const results = new Int32Array(this.size.x*this.size.y);
 
         // for each pixel, determine which quadrant it belongs to
         let i = 0;
@@ -31,7 +26,8 @@ export default class GridDetect{
             gy = Math.floor(py/this.cellSize.y);
 
             if(pixels[i*4] == 255){
-                results[[gx, gy]] += 1;
+                let ri = gx*this.size.x + gy;
+                results[ri] += 1;
             }
 
             i++;
@@ -39,15 +35,3 @@ export default class GridDetect{
         return results;
     }
 }
-
-// onmessage = function(e) {
-//     const size = e.data.gridSize;
-//     const imgD = e.data.imageData;
-//     const gd = new GridDetect(size, {x: imgD.width, y: imgD.height});
-//     const results = gd.detect(imgD);
-//     postMessage({
-//         grid: results,
-//         gridSize: size,
-//         cellSize: gd.cellSize
-//     });
-// };
