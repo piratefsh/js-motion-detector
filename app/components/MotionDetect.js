@@ -1,5 +1,7 @@
+import ContourDetectWorker from 'worker!./ContourDetectWorker';
+
 export default class MotionDetect{
-    constructor(srcId, dstId){
+    constructor(srcId, dstId) {
         // setup video
         this.video = document.getElementById(srcId);
 
@@ -10,11 +12,13 @@ export default class MotionDetect{
         // shadow canvas to draw video frames before processing
         const shadowCanvas = document.createElement('canvas');
         this.shadow = shadowCanvas.getContext('2d');
+
         // document.body.appendChild(this.shadow.canvas);
 
         // scratchpad
         const scratchpad = document.createElement('canvas');
         this.scratch = scratchpad.getContext('2d');
+
         // document.body.appendChild(this.scratch.canvas);
 
         // scale canvas
@@ -24,14 +28,14 @@ export default class MotionDetect{
         // actual canvas size
         this.size = {
             x: window.innerWidth,
-            y: window.innerHeight
-        }
+            y: window.innerHeight,
+        };
 
         // size to work with image on
         this.workingSize = {
             x: 300,
-            y: 300
-        }
+            y: 300,
+        };
 
         // size canvas
         this.resize(this.size.x, this.size.y);
@@ -41,32 +45,35 @@ export default class MotionDetect{
 
         this.frames = {
             prev: null,
-            curr: null
-        }
+            curr: null,
+        };
 
+        // set difference threshold
         this.thresh = this.makeThresh(60);
+
         // this.frameDiff = this.time(this.frameDiff);
+
+        this.test();
     }
 
-
-    init(){
+    init() {
         // success callback
         const onGetUserMediaSuccess = (stream) => {
             this.video.src = window.URL.createObjectURL(stream);
             this.video.addEventListener('play', () => {
                 // start tick
-                this.tick();  
+                this.tick();
 
                 // resize canvas to video ratio
                 const videoBounds = this.video.getBoundingClientRect();
-                const heightToWidthRatio = videoBounds.height/videoBounds.width;
-                this.resize(this.size.x, this.size.x*heightToWidthRatio);          
+                const heightToWidthRatio = videoBounds.height / videoBounds.width;
+                this.resize(this.size.x, this.size.x * heightToWidthRatio);
             }, false);
 
-        }
+        };
 
         // error callback
-        const onGetUserMediaError = (e) => { console.error(e); }
+        const onGetUserMediaError = (e) => { console.error(e); };
 
         // configure getusermedia
         navigator.getUserMedia = navigator.mediaDevices.getUserMedia ||  navigator.getUserMedia || navigator.mozGetUserMedia ||
@@ -74,32 +81,32 @@ export default class MotionDetect{
 
         const options = {
             video: {
-                width: { 
-                    min: 1024, 
-                    deal: 1280, 
-                    max: 1920 },
-                height: { 
-                    min: 776, 
-                    ideal: 720, 
-                    max: 1080 }
+                width: {
+                    min: 1024,
+                    deal: 1280,
+                    max: 1920, },
+                height: {
+                    min: 776,
+                    ideal: 720,
+                    max: 1080, },
             },
-        }
+        };
 
         // do it!
         navigator.getUserMedia(options, onGetUserMediaSuccess, onGetUserMediaError);
     }
 
-    resize(x, y){
+    resize(x, y) {
         this.size = {
             x: Math.floor(x),
-            y: Math.floor(y)
-        }
+            y: Math.floor(y),
+        };
 
-        const shadowY = Math.floor(this.size.y/this.size.x * this.workingSize.x);
+        const shadowY = Math.floor(this.size.y / this.size.x * this.workingSize.x);
         this.workingSize = {
             x: 300,
-            y: shadowY
-        }
+            y: shadowY,
+        };
 
         this.canvas.width = this.size.x;
         this.canvas.height = this.size.y;
@@ -113,13 +120,13 @@ export default class MotionDetect{
     tick() {
         this.update();
         this.draw();
-        setTimeout(()=>{
+        setTimeout(()=> {
             requestAnimationFrame(this.tick.bind(this));
-        }, 1000/60);
+        }, 1000 / 60);
     }
 
     // update and save frame data
-    update(){
+    update() {
         // draw frame
         const sw = this.workingSize.x;
         const sh = this.workingSize.y;
@@ -132,19 +139,19 @@ export default class MotionDetect{
     }
 
     // draw video and animation
-    draw(){
+    draw() {
         // find difference between frames
         const hasDiff = this.frameDiff(this.frames.prev, this.frames.curr);
-        
+
         // draw difference
-        if(hasDiff){
+        if (hasDiff) {
             let [tl, br, count, diff] = hasDiff;
             this.scratch.putImageData(diff, 0, 0);
 
             const scale = {
-                x: this.size.x/this.workingSize.x, 
-                y: this.size.y/this.workingSize.y
-            }
+                x: this.size.x / this.workingSize.x,
+                y: this.size.y / this.workingSize.y,
+            };
 
             this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
             this.ctx.rect(0, 0, this.size.x, this.size.y);
@@ -154,14 +161,14 @@ export default class MotionDetect{
             this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
 
             // if significant enough change
-            const totalPix = diff.data.length/4;
-            if(count/totalPix < 0.01){ return }
+            const totalPix = diff.data.length / 4;
+            if (count / totalPix < 0.01) { return; }
 
             // draw rect
             const size = {
                 x: br.x - tl.x,
-                y: br.y - tl.y
-            }
+                y: br.y - tl.y,
+            };
 
             this.ctx.save();
             this.ctx.scale(scale.x, scale.y);
@@ -176,17 +183,17 @@ export default class MotionDetect{
         }
     }
 
-    // bitwise absolute and threshold 
+    // bitwise absolute and threshold
     // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
     makeThresh(min) {
-        return function(value){
+        return function(value) {
             return (value ^ (value >> 31)) - (value >> 31) > min ? 255 : 0;
-        } 
+        };
     }
 
-    frameDiff(prev, curr){
-        if(prev == null || curr == null){ return false};
-        
+    frameDiff(prev, curr) {
+        if (prev == null || curr == null) { return false;};
+
         let r, g, b, a, avgP, avgC, diff, j, i;
         const p = prev.data;
         const c = curr.data;
@@ -201,31 +208,31 @@ export default class MotionDetect{
 
         let count = 0;
 
-        while(i < p.length/4){
+        while (i < p.length / 4) {
             j = i * 4;
 
-            avgC = ((c[j] + c[j+1] + c[j+2])/3);
-            avgP = ((p[j] + p[j+1] + p[j+2])/3);
+            avgC = ((c[j] + c[j + 1] + c[j + 2]) / 3);
+            avgP = ((p[j] + p[j + 1] + p[j + 2]) / 3);
 
             diff = thresh(avgC - avgP);
 
             pixels[j] = diff;
-            pixels[j+1] = diff;
-            pixels[j+2] = diff;
-            pixels[j+3] = diff;
+            pixels[j + 1] = diff;
+            pixels[j + 2] = diff;
+            pixels[j + 3] = diff;
 
             i++;
 
-            if(diff){
+            if (diff) {
                 const x = i % this.workingSize.x;
-                const y = Math.floor(i/this.workingSize.x);
+                const y = Math.floor(i / this.workingSize.x);
                 tl.x = Math.min(tl.x, x);
                 tl.y = Math.min(tl.y, y);
                 br.x = Math.max(br.x, x);
                 br.y = Math.max(br.y, y);
 
                 // count pix movement
-                count++
+                count++;
             }
         }
 
@@ -233,18 +240,23 @@ export default class MotionDetect{
         return [tl, br, count, new ImageData(arr, this.workingSize.x)];
     }
 
-    time(f){
+    time(f) {
         let start, end;
 
-        return function(){
+        return function() {
             start = new Date();
             const res = f.apply(this, arguments);
             end = new Date();
-            console.log('time', end-start);
+            console.log('time', end - start);
 
             return res;
         }.bind(this);
 
+    }
+
+    test() {
+        const worker = new ContourDetectWorker();
+        worker.postMessage('ola');
     }
 }
 
