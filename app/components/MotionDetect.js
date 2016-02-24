@@ -59,8 +59,8 @@ export default class MotionDetect{
         };
 
         // set difference threshold
-        this.pixelDiffThreshold = 255*(options.pixelDiffThreshold || 0.4);
-        
+        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || 0.4);
+
         // how much of ratio of movement to be not negligible
         this.movementThreshold = options.movementThreshold || 0.01;
 
@@ -176,12 +176,11 @@ export default class MotionDetect{
         this.onDetectCallback = fn;
     }
 
-
     // spawn worker thread to do detection
     spawnGridDetector(imageData) {
         // do nothing if no prev frame
-        if(! this.frames.prev ) {return; }
-        
+        if (!this.frames.prev) {return; }
+
         const worker = new GridDetectWorker();
 
         // create worker thread
@@ -203,7 +202,7 @@ export default class MotionDetect{
 
         worker.onmessage = (e) => {
             // if has data to return, fire callback
-            if(e.data){
+            if (e.data) {
                 this.onDetectCallback(this.ctx, e.data);
             }
         };
