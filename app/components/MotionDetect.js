@@ -59,8 +59,7 @@ export default class MotionDetect{
         };
 
         // set difference threshold
-        const pixelDiffThreshold = options.pixelDiffThreshold || 0.4;
-        this.thresh = this.makeThresh(pixelDiffThreshold * this.MAX_PIX_VAL);
+        this.pixelDiffThreshold = 255*(options.pixelDiffThreshold || 0.4);
 
         // this.frameDiff = Util.time(this.frameDiff, this);
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
@@ -167,30 +166,24 @@ export default class MotionDetect{
 
     // draw video and animation
     draw() {
+        this.spawnGridDetector();
         // find difference between frames
-        const result  = this.frameDiff(this.frames.prev, this.frames.curr);
+        // const result  = this.frameDiff(this.frames.prev, this.frames.curr);
 
         // return if no difference found
-        if (!result) { return; }
+        // if (!result) { return; }
 
         // draw difference
-        const count = result.count;
-        const diff = result.imageData;
+        // const count = result.count;
+        // const diff = result.imageData;
 
         // put diff on scratch pad (can't draw straight on canvas
         // because can only scale with drawImage)
-
-        this.scratch.putImageData(diff, 0, 0);
 
         // draw diff
         // this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
 
         // drop if change if negligible
-        const totalPix = diff.data.length / 4;
-
-        if (count / totalPix < this.movementThreshold) { return; }
-
-        this.spawnGridDetector(diff);
     }
 
     // set callback
@@ -200,57 +193,17 @@ export default class MotionDetect{
 
     // bitwise absolute and threshold
     // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
-    makeThresh(min) {
-        return function(value) {
-            return (value ^ (value >> 31)) - (value >> 31) > min ? 255 : 0;
-        };
-    }
-
-    // diff two frames, return pixel diff data, boudning box of movement and count
-    frameDiff(prev, curr) {
-        if (prev == null || curr == null) { return false;};
-        let r, g, b, a, avgP, avgC, diff, j, i;
-        const p = prev.data;
-        const c = curr.data;
-
-        // thresholding function
-        const thresh = this.thresh;
-        const pixels = new Uint8ClampedArray(p.length);
-
-        let count = 0;
-
-        // for each pixel, find if average excees thresh
-        i = 0;
-        while (i < p.length / 4) {
-            j = i * 4;
-
-            avgC = 0.2126 * c[j] + 0.7152 * c[j + 1] + 0.0722 * c[j + 2];
-            avgP = 0.2126 * p[j] + 0.7152 * p[j + 1] + 0.0722 * p[j + 2];
-
-            diff = thresh(avgC - avgP);
-
-            pixels[j + 3] = diff;
-
-
-            // if there is a difference, update bounds
-            if (diff) {
-                pixels[j] = diff;
-                // count pix movement
-                count++;
-            }
-            i++;
-        }
-
-        return {
-            count: count,
-            imageData: new ImageData(pixels, this.workingSize.x), };
-    }
+    
 
     // spawn worker thread to grid-out movement
     spawnGridDetector(imageData) {
+        if(! this.frames.prev ) {return}
+        
         const worker = new GridDetectWorker();
         worker.postMessage({
-            imageData: imageData,
+            frames: this.frames,
+            pixelDiffThreshold: this.pixelDiffThreshold,
+            movementThreshold: this.movementThreshold,
             gdSize: this.gdSize,
             imgSize: this.size,
         });
