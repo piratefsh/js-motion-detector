@@ -1,16 +1,15 @@
 
 export default class GridDetect{
-    constructor(gridSize, imageSize, pixelDiffThreshold, movementThreshold) {
-        this.size = gridSize;
-        this.imageSize = imageSize;
+    constructor(options) {
+        this.size = options.gridSize;
+        this.imageSize = options.imageSize;
         this.cellSize = {
-            x: Math.floor(imageSize.x / this.size.x),
-            y: Math.floor(imageSize.y / this.size.y),
+            x: Math.floor(this.imageSize.x / this.size.x),
+            y: Math.floor(this.imageSize.y / this.size.y),
         };
 
-        this.threshold = 0.5;
-        this.pixelDiffThreshold = pixelDiffThreshold;
-        this.movementThreshold = movementThreshold;
+        this.pixelDiffThreshold = options.pixelDiffThreshold;
+        this.movementThreshold = options.movementThreshold;
     }
 
     detect(frames) {
