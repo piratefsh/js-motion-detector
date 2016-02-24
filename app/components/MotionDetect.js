@@ -1,5 +1,6 @@
 import GridDetectWorker from 'worker!./GridDetectWorker';
 import GridDetect from './GridDetect';
+import Util from './Util';
 
 export default class MotionDetect{
 
@@ -61,7 +62,7 @@ export default class MotionDetect{
         const pixelDiffThreshold = options.pixelDiffThreshold || 0.4;
         this.thresh = this.makeThresh(pixelDiffThreshold * this.MAX_PIX_VAL);
 
-        // this.frameDiff = this.time(this.frameDiff);
+        this.frameDiff = Util.time(this.frameDiff, this);
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
 
         if (options.debug) this.debug();
@@ -202,16 +203,14 @@ export default class MotionDetect{
     // bitwise absolute and threshold
     // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
     makeThresh(min) {
-        const max = this.MAX_PIX_VAL;
         return function(value) {
-            return (value ^ (value >> 31)) - (value >> 31) > min ? max : 0;
+            return (value ^ (value >> 31)) - (value >> 31) > min ? 255 : 0;
         };
     }
 
     // diff two frames, return pixel diff data, boudning box of movement and count
     frameDiff(prev, curr) {
         if (prev == null || curr == null) { return false;};
-
         let r, g, b, a, avgP, avgC, diff, j, i;
         const p = prev.data;
         const c = curr.data;
@@ -241,7 +240,6 @@ export default class MotionDetect{
             pixels[j + 2] = diff;
             pixels[j + 3] = diff;
 
-            i++;
 
             // if there is a difference, update bounds
             if (diff) {
@@ -255,6 +253,7 @@ export default class MotionDetect{
                 // count pix movement
                 count++;
             }
+            i++;
         }
 
         return {
@@ -264,21 +263,6 @@ export default class MotionDetect{
             },
             count: count,
             imageData: new ImageData(pixels, this.workingSize.x), };
-    }
-
-    // returns function that times it's execution
-    time(f) {
-        let start, end;
-
-        return function() {
-            start = new Date();
-            const res = f.apply(this, arguments);
-            end = new Date();
-            console.log('time', end - start);
-
-            return res;
-        }.bind(this);
-
     }
 
     // spawn worker thread to grid-out movement

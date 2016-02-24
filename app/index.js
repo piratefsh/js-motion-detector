@@ -8,7 +8,7 @@ const md = new MotionDetect('src', 'dest', {
     },
     debug: true,
     pixelDiffThreshold: 0.4,
-    fps: 60
+    fps: 30
 });
 
 // on motion detected, draw grid
