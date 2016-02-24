@@ -1,5 +1,8 @@
-# Webpack Starter
-Simple directory and config setup for a Webpack project with front-end web only. 
+# Motion Detector
+
+![motion detector](http://i.imgur.com/db4bQPw.gifv)
+
+p/s: gif was from before I introduced Web Workers. stream will now be smoother, but motion areas in `index.js` sample code will be more transient/flickery (drawn on later)
 
 ## Development 
 ### Install
