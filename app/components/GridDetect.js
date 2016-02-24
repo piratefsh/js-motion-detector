@@ -26,10 +26,11 @@ export default class GridDetect{
             return false;
         }
 
-        // else return movement details
+        // else return movement in grid
         return this.detectGrid(diff.imageData);
     }
 
+    // given pixels of diff, bucket num of pixels diff into cells in grid
     detectGrid(imageData) {
         const pixels = imageData.data;
         const results = new Int32Array(this.size.x * this.size.y);

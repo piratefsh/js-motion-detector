@@ -178,13 +178,14 @@ export default class MotionDetect{
     }
 
 
-    // spawn worker thread to grid-out movement
+    // spawn worker thread to do detection
     spawnGridDetector(imageData) {
-        // dont do detection if no prev frame
+        // do nothing if no prev frame
         if(! this.frames.prev ) {return; }
         
         const worker = new GridDetectWorker();
 
+        // create worker thread
         worker.postMessage({
             frames: this.frames,
             pixelDiffThreshold: this.pixelDiffThreshold,
@@ -192,8 +193,9 @@ export default class MotionDetect{
             gdSize: this.gdSize,
             imgSize: this.size,
         });
-        
+
         worker.onmessage = (e) => {
+            // if has data to return, fire callback
             if(e.data){
                 this.onDetectCallback(this.ctx, e.data);
             }

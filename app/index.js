@@ -30,6 +30,7 @@ md.onDetect((ctx, data) => {
         const y = Math.floor(i / gs.x);
         let intensity = cell / cellArea;
 
+        // higher opacity for cells with more movement
         ctx.fillStyle = intensity > options.movementThreshold ? `rgba(0, 80, 200, ${0.1 + intensity})` : 'transparent';
 
         ctx.beginPath();
