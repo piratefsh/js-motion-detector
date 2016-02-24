@@ -1,6 +1,6 @@
 
 export default class GridDetect{
-    constructor(gridSize, imageSize, pixelDiffThreshold) {
+    constructor(gridSize, imageSize, pixelDiffThreshold, movementThreshold) {
         this.size = gridSize;
         this.imageSize = imageSize;
         this.cellSize = {
@@ -10,23 +10,31 @@ export default class GridDetect{
 
         this.threshold = 0.5;
         this.pixelDiffThreshold = pixelDiffThreshold;
+        this.movementThreshold = movementThreshold;
     }
 
-    detect(frames, movementThreshold){
+    detect(frames) {
+        // diff frames
         const diff = this.frameDiff(frames.prev, frames.curr);
-        if(!diff){return};
+
+        // if no valid diff
+        if (!diff) {return; };
+
+        // total pixels in frame
         const totalPix = diff.imageData.data.length / 4;
-        
-        if (diff.count / totalPix < movementThreshold) { 
-            return false; 
+        // if not enough movement
+        if (diff.count / totalPix < this.movementThreshold) {
+            return false;
         }
-        
+
+        // else return movement details
         return this.detectGrid(diff.imageData);
     }
 
     detectGrid(imageData) {
         const pixels = imageData.data;
         const results = new Int32Array(this.size.x * this.size.y);
+
         // for each pixel, determine which quadrant it belongs to
         let i = 0;
         let j, px, py, gx, gy, exists;
@@ -44,10 +52,11 @@ export default class GridDetect{
 
             i++;
         }
-
         return results;
     }
 
+    // bitwise absolute and threshold
+    // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
     makeThresh(min) {
         return function(value) {
             return (value ^ (value >> 31)) - (value >> 31) > min ? 255 : 0;
@@ -57,10 +66,12 @@ export default class GridDetect{
     // diff two frames, return pixel diff data, boudning box of movement and count
     frameDiff(prev, curr) {
         if (prev == null || curr == null) { return false;};
-        let r, g, b, a, avgP, avgC, diff, j, i;
+
+        let avgP, avgC, diff, j, i;
         const p = prev.data;
         const c = curr.data;
         const thresh = this.makeThresh(this.pixelDiffThreshold);
+
         // thresholding function
         const pixels = new Uint8ClampedArray(p.length);
 
@@ -78,13 +89,14 @@ export default class GridDetect{
 
             pixels[j + 3] = diff;
 
-
             // if there is a difference, update bounds
             if (diff) {
                 pixels[j] = diff;
+
                 // count pix movement
                 count++;
             }
+
             i++;
         }
 

@@ -60,6 +60,9 @@ export default class MotionDetect{
 
         // set difference threshold
         this.pixelDiffThreshold = 255*(options.pixelDiffThreshold || 0.4);
+        
+        // how much of ratio of movement to be not negligible
+        this.movementThreshold = options.movementThreshold || 0.01;
 
         // this.frameDiff = Util.time(this.frameDiff, this);
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
@@ -191,9 +194,6 @@ export default class MotionDetect{
         this.onDetectCallback = fn;
     }
 
-    // bitwise absolute and threshold
-    // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
-    
 
     // spawn worker thread to grid-out movement
     spawnGridDetector(imageData) {
@@ -208,7 +208,9 @@ export default class MotionDetect{
             imgSize: this.size,
         });
         worker.onmessage = (e) => {
-            this.onDetectCallback(this.ctx, e.data);
+            if(e.data){
+                this.onDetectCallback(this.ctx, e.data);
+            }
         };
     }
 

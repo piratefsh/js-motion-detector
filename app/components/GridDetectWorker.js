@@ -1,8 +1,10 @@
 import GridDetect from './GridDetect';
 onmessage = function(e) {
-    const gd = new GridDetect(e.data.gdSize, e.data.imgSize, e.data.pixelDiffThreshold);
+    const d = e.data;
+    const gd = new GridDetect(d.gdSize, d.imgSize, d.pixelDiffThreshold, d.movementThreshold);
+    const res = gd.detect(d.frames);
 
-    const res = gd.detect(e.data.frames, e.data.movementThreshold);
+    let msg = res ?  {motions: res, gd: gd} : false;
     
-    postMessage({motions: res, gd: gd});
+    postMessage(msg);
 };
