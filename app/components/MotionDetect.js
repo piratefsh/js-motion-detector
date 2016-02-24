@@ -2,10 +2,14 @@ import GridDetectWorker from 'worker!./GridDetectWorker';
 import GridDetect from './GridDetect';
 
 export default class MotionDetect{
-    constructor(srcId, dstId) {
+
+    constructor(srcId, dstId, options) {
+        // constants
+        this.MAX_PIX_VAL = 255;
+
         // setup video
         this.video = document.getElementById(srcId);
-        this.fps = 30;
+        this.fps = options.fps || 30;
 
         // setup canvas
         this.canvas = document.getElementById(dstId);
@@ -39,12 +43,8 @@ export default class MotionDetect{
             y: 300,
         };
 
-        const mult = 4;
         // griddetector size
-        this.gdSize = {
-            x: 4*mult,
-            y: 3*mult,
-        };
+        this.gdSize = options.gridSize;
 
         // size canvas
         this.resize(this.size.x, this.size.y);
@@ -58,16 +58,14 @@ export default class MotionDetect{
         };
 
         // set difference threshold
-        this.thresh = this.makeThresh(60);
-
-        // fraction of number of pixels of change
-        this.movementThreshold = 0.01;
+        const pixelDiffThreshold = options.pixelDiffThreshold || 0.4;
+        this.thresh = this.makeThresh(pixelDiffThreshold * this.MAX_PIX_VAL);
 
         // this.frameDiff = this.time(this.frameDiff);
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
 
+        if (options.debug) this.debug();
         this.pause = false;
-        this.debug();
     }
 
     init() {
@@ -193,45 +191,24 @@ export default class MotionDetect{
 
         if (count / totalPix < this.movementThreshold) { return; }
 
-        // draw rect
-        //this.drawMotionRect(tl, br);
-
         this.spawnGridDetector(diff);
     }
 
-    drawMotionRect(tl, br) {
-        const scale = {
-            x: this.size.x / this.workingSize.x,
-            y: this.size.y / this.workingSize.y,
-        };
-
-        const size = {
-            x: br.x - tl.x,
-            y: br.y - tl.y,
-        };
-
-        this.ctx.save();
-
-        // scale up from working size
-        // this.ctx.scale(scale.x, scale.y);
-        this.ctx.beginPath();
-
-        // draw motion area
-        this.ctx.rect(tl.x, tl.y, size.x, size.y);
-        this.ctx.closePath();
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        this.ctx.fill();
-        this.ctx.restore();
+    // set callback
+    onDetect(fn) {
+        this.onDetectCallback = fn;
     }
 
     // bitwise absolute and threshold
     // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
     makeThresh(min) {
+        const max = this.MAX_PIX_VAL;
         return function(value) {
-            return (value ^ (value >> 31)) - (value >> 31) > min ? 255 : 0;
+            return (value ^ (value >> 31)) - (value >> 31) > min ? max : 0;
         };
     }
 
+    // diff two frames, return pixel diff data, boudning box of movement and count
     frameDiff(prev, curr) {
         if (prev == null || curr == null) { return false;};
 
@@ -304,6 +281,7 @@ export default class MotionDetect{
 
     }
 
+    // spawn worker thread to grid-out movement
     spawnGridDetector(imageData) {
         const worker = new GridDetectWorker();
         worker.postMessage({
@@ -312,41 +290,11 @@ export default class MotionDetect{
             imgSize: this.size,
         });
         worker.onmessage = (e) => {
-            this.drawGrid({
-                grid: e.data.results,
-                gridSize: e.data.gd.size,
-                cellSize: e.data.gd.cellSize,
-            });
+            this.onDetectCallback(this.ctx, e.data);
         };
     }
 
-    drawGrid(data) {
-        this.ctx.save();
-        const gs = data.gridSize;
-        const grid = data.grid;
-        const cs = data.cellSize;
-
-        const cellArea = data.cellSize.x * data.cellSize.y;
-
-        this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.3)';
-
-        grid.forEach((cell, i) => {
-            const x = i % gs.x;
-            const y = Math.floor(i / gs.x);
-            let intensity = cell / cellArea;
-
-            this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.1 + intensity})` : 'transparent';
-
-            this.ctx.beginPath();
-            this.ctx.rect(x * cs.x, y * cs.y, cs.x, cs.y);
-            this.ctx.closePath();
-            // this.ctx.stroke();
-            this.ctx.fill();
-        });
-
-        this.ctx.restore();
-    }
-
+    // activate pausing mechanism
     debug() {
         document.addEventListener('keydown', ()=> {
             console.log('paused');
