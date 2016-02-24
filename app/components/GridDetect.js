@@ -14,7 +14,6 @@ export default class GridDetect{
     detect(imageData) {
         const pixels = imageData.data;
         const results = new Int32Array(this.size.x * this.size.y);
-
         // for each pixel, determine which quadrant it belongs to
         let i = 0;
         let j, px, py, gx, gy, exists;
@@ -22,8 +21,8 @@ export default class GridDetect{
             px = i % this.imageSize.x;
             py = Math.floor(i / this.imageSize.x);
 
-            gx = Math.floor(px / this.cellSize.x);
-            gy = Math.floor(py / this.cellSize.y);
+            gx = Math.floor(py / this.cellSize.y);
+            gy = Math.floor(px / this.cellSize.x);
 
             if (pixels[i * 4] == 255) {
                 let ri = gx * this.size.x + gy;

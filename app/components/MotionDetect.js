@@ -39,10 +39,11 @@ export default class MotionDetect{
             y: 300,
         };
 
+        const mult = 4;
         // griddetector size
         this.gdSize = {
-            x: 8 * 2,
-            y: 6 * 2,
+            x: 4*mult,
+            y: 3*mult,
         };
 
         // size canvas
@@ -310,7 +311,6 @@ export default class MotionDetect{
             gdSize: this.gdSize,
             imgSize: this.size,
         });
-
         worker.onmessage = (e) => {
             this.drawGrid({
                 grid: e.data.results,
@@ -328,11 +328,11 @@ export default class MotionDetect{
 
         const cellArea = data.cellSize.x * data.cellSize.y;
 
-        this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.0)';
+        this.ctx.strokeStyle = 'rgba(0, 80, 200, 0.3)';
 
         grid.forEach((cell, i) => {
-            const x = Math.floor(i / gs.x);
-            const y = i % gs.x;
+            const x = i % gs.x;
+            const y = Math.floor(i / gs.x);
             let intensity = cell / cellArea;
 
             this.ctx.fillStyle = intensity > this.movementThreshold ? `rgba(0, 80, 200, ${0.1 + intensity})` : 'transparent';
@@ -340,7 +340,7 @@ export default class MotionDetect{
             this.ctx.beginPath();
             this.ctx.rect(x * cs.x, y * cs.y, cs.x, cs.y);
             this.ctx.closePath();
-            this.ctx.stroke();
+            // this.ctx.stroke();
             this.ctx.fill();
         });
 
