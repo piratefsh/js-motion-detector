@@ -138,7 +138,7 @@ export default class MotionDetect{
     tick() {
         if (!this.pause) {
             this.update();
-            this.draw();
+            this.detect();
         }
 
         setTimeout(()=> {
@@ -167,26 +167,9 @@ export default class MotionDetect{
         this.frames.curr = this.shadow.getImageData(0, 0, sw, sh);
     }
 
-    // draw video and animation
-    draw() {
+    // do detection
+    detect() {
         this.spawnGridDetector();
-        // find difference between frames
-        // const result  = this.frameDiff(this.frames.prev, this.frames.curr);
-
-        // return if no difference found
-        // if (!result) { return; }
-
-        // draw difference
-        // const count = result.count;
-        // const diff = result.imageData;
-
-        // put diff on scratch pad (can't draw straight on canvas
-        // because can only scale with drawImage)
-
-        // draw diff
-        // this.ctx.drawImage(this.scratch.canvas, 0, 0, this.workingSize.x, this.workingSize.y, 0, 0, this.size.x, this.size.y);
-
-        // drop if change if negligible
     }
 
     // set callback
