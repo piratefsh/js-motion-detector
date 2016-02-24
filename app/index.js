@@ -3,13 +3,13 @@ import 'styles/style.scss'
 
 const options = {
     gridSize: {
-        x: 4*4,
-        y: 3*4,
+        x: 4*6,
+        y: 3*6,
     },
     debug: true,
-    pixelDiffThreshold: 0.4,
+    pixelDiffThreshold: 0.3,
     movementThreshold: 0.0012,
-    fps: 20
+    fps: 30
 }
 
 var overlay = document.getElementById('overlay');
@@ -30,16 +30,19 @@ md.onDetect((other, data) => {
     const grid = data.motions;
     const gs = data.gd.size;
     const cs = data.gd.cellSize;
+    const csActualRatio = data.gd.actualCellSizeRatio;
 
     const cellArea = cs.x * cs.y;
+    cs.x *= csActualRatio;
+    cs.y *= csActualRatio;
 
-    ctx.strokeStyle = 'rgba(0, 80, 200, 0.3)';
+    ctx.strokeStyle = 'rgba(0, 80, 200, 0.2)';
 
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     grid.forEach((cell, i) => {
         const x = i % gs.x;
         const y = Math.floor(i / gs.x);
         let intensity = cell / cellArea;
-
         // higher opacity for cells with more movement
         ctx.fillStyle = intensity > options.movementThreshold ? `rgba(0, 80, 200, ${0.1 + intensity})` : 'transparent';
 
@@ -54,6 +57,6 @@ md.onDetect((other, data) => {
 
     timeoutClear = setTimeout(()=>{
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    }, 100);
+    }, 1000);
     
 })

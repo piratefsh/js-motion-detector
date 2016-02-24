@@ -38,9 +38,9 @@ export default class MotionDetect{
             y: window.innerHeight,
         };
 
-        // size to work with image on
+        // size to work with image on (scale down to reduce work)
         this.workingSize = {
-            x: this.size.x,
+            x: 300,
             y: 300,
         };
 
@@ -64,7 +64,6 @@ export default class MotionDetect{
         // how much of ratio of movement to be not negligible
         this.movementThreshold = options.movementThreshold || 0.01;
 
-        // this.frameDiff = Util.time(this.frameDiff, this);
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
 
         if (options.debug) this.debug();
@@ -187,11 +186,19 @@ export default class MotionDetect{
 
         // create worker thread
         worker.postMessage({
+            // frames to diff
             frames: this.frames,
+
+            // thresholds
             pixelDiffThreshold: this.pixelDiffThreshold,
             movementThreshold: this.movementThreshold,
+
+            // grid size x cells by y cells
             gdSize: this.gdSize,
-            imgSize: this.size,
+
+            // sizes for math
+            imageSize: this.size,
+            workingSize: this.workingSize,
         });
 
         worker.onmessage = (e) => {

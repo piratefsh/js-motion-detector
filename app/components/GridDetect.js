@@ -4,14 +4,16 @@ export default class GridDetect{
     constructor(options) {
         this.size = options.gridSize;
         this.imageSize = options.imageSize;
+        this.workingSize = options.workingSize;
         this.cellSize = {
-            x: (this.imageSize.x / this.size.x),
-            y: (this.imageSize.y / this.size.y),
+            x: (this.workingSize.x / this.size.x),
+            y: (this.workingSize.y / this.size.y),
         };
 
         this.pixelDiffThreshold = options.pixelDiffThreshold;
         this.movementThreshold = options.movementThreshold;
-        // this.detectGrid = Util.time(this.detectGrid, this);
+        
+        // this.frameDiff = Util.time(this.frameDiff, this);
     }
 
     detect(frames) {
@@ -42,8 +44,8 @@ export default class GridDetect{
         let i = 0;
         let j, px, py, gx, gy, exists;
         while (i < pixels.length / 4) {
-            px = i % this.imageSize.x;
-            py = Math.floor(i / this.imageSize.x);
+            px = i % this.workingSize.x;
+            py = Math.floor(i / this.workingSize.x);
 
             gy = Math.floor(px / this.cellSize.x);
             gx = Math.floor(py / this.cellSize.y);
@@ -105,6 +107,6 @@ export default class GridDetect{
 
         return {
             count: count,
-            imageData: new ImageData(pixels, this.imageSize.x), };
+            imageData: new ImageData(pixels, this.workingSize.x), };
     }
 }
