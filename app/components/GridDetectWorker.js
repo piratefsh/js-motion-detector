@@ -12,7 +12,7 @@ onmessage = function(e) {
 
     // get result
     const detected = gd.detect(d.frames);
-    let msg = detected ?  {motions: detected, gd: gd} : false;
+    let msg = detected ?  { motions: detected, gd: {size: gd.size, cellSize: gd.cellSize}} : false;
     
     // send response
     postMessage(msg);

@@ -3,8 +3,8 @@ import 'styles/style.scss'
 
 const options = {
     gridSize: {
-        x: 4*6,
-        y: 3*6,
+        x: 4*4,
+        y: 3*4,
     },
     debug: true,
     pixelDiffThreshold: 0.4,
@@ -46,7 +46,7 @@ md.onDetect((other, data) => {
         ctx.beginPath();
         ctx.rect(x * cs.x, y * cs.y, cs.x, cs.y);
         ctx.closePath();
-        // ctx.stroke();
+        ctx.stroke();
         ctx.fill();
     });
 

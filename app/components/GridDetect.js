@@ -1,15 +1,17 @@
+import Util from './Util';
 
 export default class GridDetect{
     constructor(options) {
         this.size = options.gridSize;
         this.imageSize = options.imageSize;
         this.cellSize = {
-            x: Math.floor(this.imageSize.x / this.size.x),
-            y: Math.floor(this.imageSize.y / this.size.y),
+            x: (this.imageSize.x / this.size.x),
+            y: (this.imageSize.y / this.size.y),
         };
 
         this.pixelDiffThreshold = options.pixelDiffThreshold;
         this.movementThreshold = options.movementThreshold;
+        // this.detectGrid = Util.time(this.detectGrid, this);
     }
 
     detect(frames) {
@@ -32,6 +34,7 @@ export default class GridDetect{
 
     // given pixels of diff, bucket num of pixels diff into cells in grid
     detectGrid(imageData) {
+
         const pixels = imageData.data;
         const results = new Int32Array(this.size.x * this.size.y);
 
@@ -42,8 +45,8 @@ export default class GridDetect{
             px = i % this.imageSize.x;
             py = Math.floor(i / this.imageSize.x);
 
-            gx = Math.floor(py / this.cellSize.y);
             gy = Math.floor(px / this.cellSize.x);
+            gx = Math.floor(py / this.cellSize.y);
 
             if (pixels[i * 4] == 255) {
                 let ri = gx * this.size.x + gy;
