@@ -62,7 +62,7 @@ export default class MotionDetect{
         const pixelDiffThreshold = options.pixelDiffThreshold || 0.4;
         this.thresh = this.makeThresh(pixelDiffThreshold * this.MAX_PIX_VAL);
 
-        this.frameDiff = Util.time(this.frameDiff, this);
+        // this.frameDiff = Util.time(this.frameDiff, this);
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
 
         if (options.debug) this.debug();
@@ -174,8 +174,6 @@ export default class MotionDetect{
         if (!result) { return; }
 
         // draw difference
-        const tl = result.position.tl;
-        const br = result.position.br;
         const count = result.count;
         const diff = result.imageData;
 
@@ -219,10 +217,6 @@ export default class MotionDetect{
         const thresh = this.thresh;
         const pixels = new Uint8ClampedArray(p.length);
 
-        // save top left and bottom right bounds of movement
-        let tl = {x: Infinity, y: Infinity};
-        let br = {x: -1, y: -1};
-
         let count = 0;
 
         // for each pixel, find if average excees thresh
@@ -235,21 +229,12 @@ export default class MotionDetect{
 
             diff = thresh(avgC - avgP);
 
-            pixels[j] = diff;
-            pixels[j + 1] = 0;
-            pixels[j + 2] = diff;
             pixels[j + 3] = diff;
 
 
             // if there is a difference, update bounds
             if (diff) {
-                const x = i % this.workingSize.x;
-                const y = Math.floor(i / this.workingSize.x);
-                tl.x = Math.min(tl.x, x);
-                tl.y = Math.min(tl.y, y);
-                br.x = Math.max(br.x, x);
-                br.y = Math.max(br.y, y);
-
+                pixels[j] = diff;
                 // count pix movement
                 count++;
             }
@@ -257,10 +242,6 @@ export default class MotionDetect{
         }
 
         return {
-            position: {
-                tl: tl,
-                br: br,
-            },
             count: count,
             imageData: new ImageData(pixels, this.workingSize.x), };
     }
