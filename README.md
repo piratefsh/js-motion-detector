@@ -1,6 +1,6 @@
 # Motion Detector
 
-![motion detector](http://i.imgur.com/db4bQPw.gifv)
+![motion detector](http://i.imgur.com/db4bQPw.gif)
 
 p/s: gif was from before I introduced Web Workers. stream will now be smoother, but motion areas in `index.js` sample code will be more transient/flickery (drawn on later)
 
