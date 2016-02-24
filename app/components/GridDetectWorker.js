@@ -7,9 +7,10 @@ onmessage = function(e) {
         pixelDiffThreshold: d.pixelDiffThreshold, 
         movementThreshold: d.movementThreshold
     });
-    const res = gd.detect(d.frames);
 
-    let msg = res ?  {motions: res, gd: gd} : false;
+    const detected = gd.detect(d.frames);
+
+    let msg = detected ?  {motions: detected, gd: gd} : false;
     
     postMessage(msg);
 };
