@@ -28,15 +28,17 @@ var videoElemSrcId = document.getElementById('video-src');
 var md = new MotionDetect(videoElemSrcId, options);
 
 // ctx is context of canvas frames were drawn on
-// data is a 1D array of grid by row, with intensity of movement for each grid cell 
 md.onDetect(function(ctx, data){
-    console.log(data); 
+    // data.motions is a 1D array of grid by row, with
+    // intensity of movement for each grid cell from 0-255
     // e.g. a frame with a lot of movement on 
-    // the leftmost column would look like this
+    // the leftmost column would look something like this
     // [0, 0, 0, 0, 138, 1,
     // 0, 0, 0, 0, 0, 7, 
     // 0, 0, 2, 0, 0, 186, 
     // 0, 0, 0, 0, 0, 0]
+
+    console.log(data.motions); 
 }
 
 ```
