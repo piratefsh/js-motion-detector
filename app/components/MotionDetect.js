@@ -4,16 +4,29 @@ import Util from './Util';
 
 export default class MotionDetect{
 
-    constructor(srcId, dstId, options) {
+    constructor(srcId, options) {
         // constants
         this.MAX_PIX_VAL = 255;
 
+        // defaults for options
+        this.defaults = {
+            fps: 30,
+            gridSize: {
+                x: 6,
+                y: 4
+            },
+            pixelDiffThreshold: 0.4,
+            movementThreshold: 0.001,
+            debug: false,
+            canvasOutputElem: document.createElement('canvas')
+        }
+
         // setup video
         this.video = document.getElementById(srcId);
-        this.fps = options.fps || 30;
+        this.fps = options.fps || this.defaults.fps;
 
         // setup canvas
-        this.canvas = document.getElementById(dstId);
+        this.canvas = options.canvasOutputElem || this.defaults.canvasOutputElem;
         this.ctx = this.canvas.getContext('2d');
 
         // shadow canvas to draw video frames before processing
@@ -45,7 +58,7 @@ export default class MotionDetect{
         };
 
         // griddetector size
-        this.gdSize = options.gridSize;
+        this.gdSize = options.gridSize || this.defaults.gridSize;
 
         // size canvas
         this.resize(this.size.x, this.size.y);
@@ -59,13 +72,12 @@ export default class MotionDetect{
         };
 
         // set difference threshold
-        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || 0.4);
+        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || this.defaults.pixelDiffThreshold);
 
         // how much of ratio of movement to be not negligible
-        this.movementThreshold = options.movementThreshold || 0.01;
+        this.movementThreshold = options.movementThreshold || this.movementThreshold;
 
         // this.spawnGridDetector = this.time(this.spawnGridDetector);
-
         if (options.debug) this.debug();
         this.pause = false;
     }

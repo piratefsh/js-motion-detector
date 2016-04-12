@@ -3,20 +3,21 @@ import 'styles/style.scss'
 
 const options = {
     gridSize: {
-        x: 4*6,
-        y: 3*6,
+        x: 6,
+        y: 4,
     },
     debug: true,
     pixelDiffThreshold: 0.3,
     movementThreshold: 0.0012,
-    fps: 30
+    fps: 30,
+    canvasOutputElem: document.getElementById('dest')
 }
 
 var overlay = document.getElementById('overlay');
 const ctx = overlay.getContext('2d');
 let timeoutClear;
 
-const md = new MotionDetect('src', 'dest', options);
+const md = new MotionDetect('src', options);
 
 // on motion detected, draw grid
 md.onDetect((other, data) => {
@@ -32,6 +33,7 @@ md.onDetect((other, data) => {
     const cs = data.gd.cellSize;
     const csActualRatio = data.gd.actualCellSizeRatio;
 
+    // scale up cell size
     const cellArea = cs.x * cs.y;
     cs.x *= csActualRatio;
     cs.y *= csActualRatio;
