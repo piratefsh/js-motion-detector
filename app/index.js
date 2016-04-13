@@ -3,8 +3,8 @@ import 'styles/style.scss'
 
 const options = {
     gridSize: {
-        x: 4*6,
-        y: 3*6,
+        x: 16*2,
+        y: 12*2,
     },
     debug: true,
     pixelDiffThreshold: 0.3,

@@ -64,7 +64,7 @@ export default class MotionDetect{
         // how much of ratio of movement to be not negligible
         this.movementThreshold = options.movementThreshold || 0.01;
 
-        // this.spawnGridDetector = this.time(this.spawnGridDetector);
+        this.spawnGridDetector = Util.time(this.spawnGridDetector, this);
 
         if (options.debug) this.debug();
         this.pause = false;
