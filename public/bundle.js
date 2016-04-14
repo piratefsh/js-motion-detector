@@ -55,13 +55,70 @@
 
 	var _interopRequireDefault = __webpack_require__(2)['default'];
 
-	var _test = __webpack_require__(3);
+	var _componentsMotionDetect = __webpack_require__(3);
 
-	var _test2 = _interopRequireDefault(_test);
+	var _componentsMotionDetect2 = _interopRequireDefault(_componentsMotionDetect);
 
-	__webpack_require__(4);
+	__webpack_require__(12);
 
-	(0, _test2['default'])();
+	var options = {
+	    gridSize: {
+	        x: 16 * 2,
+	        y: 12 * 2
+	    },
+	    debug: true,
+	    pixelDiffThreshold: 0.3,
+	    movementThreshold: 0.0012,
+	    fps: 30
+	};
+
+	var overlay = document.getElementById('overlay');
+	var ctx = overlay.getContext('2d');
+	var timeoutClear = undefined;
+
+	var md = new _componentsMotionDetect2['default']('src', 'dest', options);
+
+	// on motion detected, draw grid
+	md.onDetect(function (other, data) {
+	    clearTimeout(timeoutClear);
+
+	    var canvas = ctx.canvas;
+	    canvas.width = other.canvas.width;
+	    canvas.height = other.canvas.height;
+
+	    ctx.save();
+	    var grid = data.motions;
+	    var gs = data.gd.size;
+	    var cs = data.gd.cellSize;
+	    var csActualRatio = data.gd.actualCellSizeRatio;
+
+	    var cellArea = cs.x * cs.y;
+	    cs.x *= csActualRatio;
+	    cs.y *= csActualRatio;
+
+	    ctx.strokeStyle = 'rgba(0, 80, 200, 0.2)';
+
+	    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+	    grid.forEach(function (cell, i) {
+	        var x = i % gs.x;
+	        var y = Math.floor(i / gs.x);
+	        var intensity = cell / cellArea;
+	        // higher opacity for cells with more movement
+	        ctx.fillStyle = intensity > options.movementThreshold ? 'rgba(0, 80, 200, ' + (0.1 + intensity) + ')' : 'transparent';
+
+	        ctx.beginPath();
+	        ctx.rect(x * cs.x, y * cs.y, cs.x, cs.y);
+	        ctx.closePath();
+	        ctx.stroke();
+	        ctx.fill();
+	    });
+
+	    ctx.restore();
+
+	    timeoutClear = setTimeout(function () {
+	        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+	    }, 1000);
+	});
 
 /***/ },
 /* 2 */
@@ -79,275 +136,571 @@
 
 /***/ },
 /* 3 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
-	"use strict";
+	'use strict';
 
-	Object.defineProperty(exports, "__esModule", {
+	var _createClass = __webpack_require__(4)['default'];
+
+	var _classCallCheck = __webpack_require__(8)['default'];
+
+	var _interopRequireDefault = __webpack_require__(2)['default'];
+
+	Object.defineProperty(exports, '__esModule', {
 	    value: true
 	});
-	exports["default"] = test;
 
-	function test() {
-	    var a = [1, 2, 3, 4, 5, 6];
-	    a.forEach(function (m) {
-	        return console.log(m);
-	    });
-	}
+	var _workerGridDetectWorker = __webpack_require__(9);
 
-	module.exports = exports["default"];
+	var _workerGridDetectWorker2 = _interopRequireDefault(_workerGridDetectWorker);
+
+	var _GridDetect = __webpack_require__(10);
+
+	var _GridDetect2 = _interopRequireDefault(_GridDetect);
+
+	var _Util = __webpack_require__(11);
+
+	var _Util2 = _interopRequireDefault(_Util);
+
+	var MotionDetect = (function () {
+	    function MotionDetect(srcId, dstId, options) {
+	        _classCallCheck(this, MotionDetect);
+
+	        // constants
+	        this.MAX_PIX_VAL = 255;
+
+	        // setup video
+	        this.video = document.getElementById(srcId);
+	        this.fps = options.fps || 30;
+
+	        // setup canvas
+	        this.canvas = document.getElementById(dstId);
+	        this.ctx = this.canvas.getContext('2d');
+
+	        // shadow canvas to draw video frames before processing
+	        var shadowCanvas = document.createElement('canvas');
+	        this.shadow = shadowCanvas.getContext('2d');
+
+	        // document.body.appendChild(this.shadow.canvas);
+
+	        // scratchpad
+	        var scratchpad = document.createElement('canvas');
+	        this.scratch = scratchpad.getContext('2d');
+
+	        // document.body.appendChild(this.scratch.canvas);
+
+	        // scale canvas
+	        this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+	        this.ctx.scale(-1, 1);
+
+	        // actual canvas size
+	        this.size = {
+	            x: window.innerWidth,
+	            y: window.innerHeight
+	        };
+
+	        // size to work with image on (scale down to reduce work)
+	        this.workingSize = {
+	            x: 300,
+	            y: 300
+	        };
+
+	        // griddetector size
+	        this.gdSize = options.gridSize;
+
+	        // size canvas
+	        this.resize(this.size.x, this.size.y);
+
+	        // start yo engines
+	        this.init();
+
+	        this.frames = {
+	            prev: null,
+	            curr: null
+	        };
+
+	        // set difference threshold
+	        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || 0.4);
+
+	        // how much of ratio of movement to be not negligible
+	        this.movementThreshold = options.movementThreshold || 0.01;
+
+	        this.spawnGridDetector = _Util2['default'].time(this.spawnGridDetector, this);
+
+	        if (options.debug) this.debug();
+	        this.pause = false;
+	    }
+
+	    _createClass(MotionDetect, [{
+	        key: 'init',
+	        value: function init() {
+	            var _this = this;
+
+	            // success callback
+	            var onGetUserMediaSuccess = function onGetUserMediaSuccess(stream) {
+	                _this.video.src = window.URL.createObjectURL(stream);
+	                _this.video.addEventListener('play', function () {
+	                    // start tick
+	                    _this.tick();
+
+	                    // resize canvas to video ratio
+	                    var videoBounds = _this.video.getBoundingClientRect();
+	                    var heightToWidthRatio = videoBounds.height / videoBounds.width;
+	                    _this.resize(_this.size.x, _this.size.x * heightToWidthRatio);
+	                }, false);
+	            };
+
+	            // error callback
+	            var onGetUserMediaError = function onGetUserMediaError(e) {
+	                console.error(e);
+	            };
+
+	            // configure getusermedia
+	            navigator.getUserMedia = navigator.mediaDevices.getUserMedia || navigator.getUserMedia || navigator.mozGetUserMedia || navigator.webkitGetUserMedia || navigator.msGetUserMedia;
+
+	            var options = {
+	                video: {
+	                    width: {
+	                        min: 1024,
+	                        deal: 1280,
+	                        max: 1920 },
+	                    height: {
+	                        min: 776,
+	                        ideal: 720,
+	                        max: 1080 }
+	                }
+	            };
+
+	            // do it!
+	            navigator.getUserMedia(options, onGetUserMediaSuccess, onGetUserMediaError);
+	        }
+	    }, {
+	        key: 'resize',
+	        value: function resize(x, y) {
+	            this.size = {
+	                x: Math.floor(x),
+	                y: Math.floor(y)
+	            };
+
+	            // scale working size
+	            var shadowY = Math.floor(this.size.y / this.size.x * this.workingSize.x);
+	            this.workingSize = {
+	                x: this.workingSize.x,
+	                y: shadowY
+	            };
+
+	            // resize canvases
+	            this.canvas.width = this.size.x;
+	            this.canvas.height = this.size.y;
+	            this.shadow.canvas.width = this.workingSize.x;
+	            this.shadow.canvas.height = this.workingSize.y;
+	            this.scratch.canvas.width = this.size.x;
+	            this.scratch.canvas.height = this.size.y;
+	        }
+
+	        // main loop
+	    }, {
+	        key: 'tick',
+	        value: function tick() {
+	            var _this2 = this;
+
+	            if (!this.pause) {
+	                this.update();
+	                this.detect();
+	            }
+
+	            setTimeout(function () {
+	                requestAnimationFrame(_this2.tick.bind(_this2));
+	            }, 1000 / this.fps);
+	        }
+
+	        // update and save frame data
+	    }, {
+	        key: 'update',
+	        value: function update() {
+	            // draw frame on shadow and canvas
+	            var sw = this.workingSize.x;
+	            var sh = this.workingSize.y;
+
+	            this.shadow.save();
+	            this.shadow.scale(-1, 1);
+	            this.shadow.drawImage(this.video, 0, 0, -sw, sh);
+	            this.shadow.restore();
+
+	            this.ctx.save();
+	            this.ctx.scale(-1, 1);
+	            this.ctx.drawImage(this.video, 0, 0, -this.size.x, this.size.y);
+	            this.ctx.restore();
+
+	            // update data
+	            this.frames.prev = this.frames.curr;
+	            this.frames.curr = this.shadow.getImageData(0, 0, sw, sh);
+	        }
+
+	        // do detection
+	    }, {
+	        key: 'detect',
+	        value: function detect() {
+	            this.spawnGridDetector();
+	        }
+
+	        // set callback
+	    }, {
+	        key: 'onDetect',
+	        value: function onDetect(fn) {
+	            this.onDetectCallback = fn;
+	        }
+
+	        // spawn worker thread to do detection
+	    }, {
+	        key: 'spawnGridDetector',
+	        value: function spawnGridDetector(imageData) {
+	            var _this3 = this;
+
+	            // do nothing if no prev frame
+	            if (!this.frames.prev) {
+	                return;
+	            }
+
+	            var worker = new _workerGridDetectWorker2['default']();
+
+	            // create worker thread
+	            worker.postMessage({
+	                // frames to diff
+	                frames: this.frames,
+
+	                // thresholds
+	                pixelDiffThreshold: this.pixelDiffThreshold,
+	                movementThreshold: this.movementThreshold,
+
+	                // grid size x cells by y cells
+	                gdSize: this.gdSize,
+
+	                // sizes for math
+	                imageSize: this.size,
+	                workingSize: this.workingSize
+	            });
+
+	            worker.onmessage = function (e) {
+	                // if has data to return, fire callback
+	                if (e.data) {
+	                    _this3.onDetectCallback(_this3.ctx, e.data);
+	                }
+	            };
+	        }
+
+	        // activate pausing mechanism
+	    }, {
+	        key: 'debug',
+	        value: function debug() {
+	            var _this4 = this;
+
+	            document.addEventListener('keydown', function () {
+	                console.log('paused');
+	                _this4.pause = !_this4.pause;
+	            }, false);
+	        }
+	    }]);
+
+	    return MotionDetect;
+	})();
+
+	exports['default'] = MotionDetect;
+	module.exports = exports['default'];
 
 /***/ },
 /* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
-	// style-loader: Adds some css to the DOM by adding a <style> tag
+	"use strict";
 
-	// load the styles
-	var content = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"!!./../../node_modules/css-loader/index.js!./../../node_modules/sass-loader/index.js!./style.scss\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
-	if(typeof content === 'string') content = [[module.id, content, '']];
-	// add the styles to the DOM
-	var update = __webpack_require__(6)(content, {});
-	if(content.locals) module.exports = content.locals;
-	// Hot Module Replacement
-	if(false) {
-		// When the styles change, update the <style> tags
-		if(!content.locals) {
-			module.hot.accept("!!./../../node_modules/css-loader/index.js!./../../node_modules/sass-loader/index.js!./style.scss", function() {
-				var newContent = require("!!./../../node_modules/css-loader/index.js!./../../node_modules/sass-loader/index.js!./style.scss");
-				if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
-				update(newContent);
-			});
-		}
-		// When the module is disposed, remove the <style> tags
-		module.hot.dispose(function() { update(); });
-	}
+	var _Object$defineProperty = __webpack_require__(5)["default"];
+
+	exports["default"] = (function () {
+	  function defineProperties(target, props) {
+	    for (var i = 0; i < props.length; i++) {
+	      var descriptor = props[i];
+	      descriptor.enumerable = descriptor.enumerable || false;
+	      descriptor.configurable = true;
+	      if ("value" in descriptor) descriptor.writable = true;
+
+	      _Object$defineProperty(target, descriptor.key, descriptor);
+	    }
+	  }
+
+	  return function (Constructor, protoProps, staticProps) {
+	    if (protoProps) defineProperties(Constructor.prototype, protoProps);
+	    if (staticProps) defineProperties(Constructor, staticProps);
+	    return Constructor;
+	  };
+	})();
+
+	exports.__esModule = true;
 
 /***/ },
-/* 5 */,
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = { "default": __webpack_require__(6), __esModule: true };
+
+/***/ },
 /* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/*
-		MIT License http://www.opensource.org/licenses/mit-license.php
-		Author Tobias Koppers @sokra
-	*/
-	var stylesInDom = {},
-		memoize = function(fn) {
-			var memo;
-			return function () {
-				if (typeof memo === "undefined") memo = fn.apply(this, arguments);
-				return memo;
-			};
-		},
-		isOldIE = memoize(function() {
-			return /msie [6-9]\b/.test(window.navigator.userAgent.toLowerCase());
-		}),
-		getHeadElement = memoize(function () {
-			return document.head || document.getElementsByTagName("head")[0];
-		}),
-		singletonElement = null,
-		singletonCounter = 0;
+	var $ = __webpack_require__(7);
+	module.exports = function defineProperty(it, key, desc){
+	  return $.setDesc(it, key, desc);
+	};
 
-	module.exports = function(list, options) {
-		if(false) {
-			if(typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
-		}
+/***/ },
+/* 7 */
+/***/ function(module, exports) {
 
-		options = options || {};
-		// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
-		// tags it will allow on a page
-		if (typeof options.singleton === "undefined") options.singleton = isOldIE();
+	var $Object = Object;
+	module.exports = {
+	  create:     $Object.create,
+	  getProto:   $Object.getPrototypeOf,
+	  isEnum:     {}.propertyIsEnumerable,
+	  getDesc:    $Object.getOwnPropertyDescriptor,
+	  setDesc:    $Object.defineProperty,
+	  setDescs:   $Object.defineProperties,
+	  getKeys:    $Object.keys,
+	  getNames:   $Object.getOwnPropertyNames,
+	  getSymbols: $Object.getOwnPropertySymbols,
+	  each:       [].forEach
+	};
 
-		var styles = listToStyles(list);
-		addStylesToDom(styles, options);
+/***/ },
+/* 8 */
+/***/ function(module, exports) {
 
-		return function update(newList) {
-			var mayRemove = [];
-			for(var i = 0; i < styles.length; i++) {
-				var item = styles[i];
-				var domStyle = stylesInDom[item.id];
-				domStyle.refs--;
-				mayRemove.push(domStyle);
-			}
-			if(newList) {
-				var newStyles = listToStyles(newList);
-				addStylesToDom(newStyles, options);
-			}
-			for(var i = 0; i < mayRemove.length; i++) {
-				var domStyle = mayRemove[i];
-				if(domStyle.refs === 0) {
-					for(var j = 0; j < domStyle.parts.length; j++)
-						domStyle.parts[j]();
-					delete stylesInDom[domStyle.id];
-				}
-			}
-		};
-	}
+	"use strict";
 
-	function addStylesToDom(styles, options) {
-		for(var i = 0; i < styles.length; i++) {
-			var item = styles[i];
-			var domStyle = stylesInDom[item.id];
-			if(domStyle) {
-				domStyle.refs++;
-				for(var j = 0; j < domStyle.parts.length; j++) {
-					domStyle.parts[j](item.parts[j]);
-				}
-				for(; j < item.parts.length; j++) {
-					domStyle.parts.push(addStyle(item.parts[j], options));
-				}
-			} else {
-				var parts = [];
-				for(var j = 0; j < item.parts.length; j++) {
-					parts.push(addStyle(item.parts[j], options));
-				}
-				stylesInDom[item.id] = {id: item.id, refs: 1, parts: parts};
-			}
-		}
-	}
+	exports["default"] = function (instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	};
 
-	function listToStyles(list) {
-		var styles = [];
-		var newStyles = {};
-		for(var i = 0; i < list.length; i++) {
-			var item = list[i];
-			var id = item[0];
-			var css = item[1];
-			var media = item[2];
-			var sourceMap = item[3];
-			var part = {css: css, media: media, sourceMap: sourceMap};
-			if(!newStyles[id])
-				styles.push(newStyles[id] = {id: id, parts: [part]});
-			else
-				newStyles[id].parts.push(part);
-		}
-		return styles;
-	}
+	exports.__esModule = true;
 
-	function createStyleElement() {
-		var styleElement = document.createElement("style");
-		var head = getHeadElement();
-		styleElement.type = "text/css";
-		head.appendChild(styleElement);
-		return styleElement;
-	}
+/***/ },
+/* 9 */
+/***/ function(module, exports, __webpack_require__) {
 
-	function createLinkElement() {
-		var linkElement = document.createElement("link");
-		var head = getHeadElement();
-		linkElement.rel = "stylesheet";
-		head.appendChild(linkElement);
-		return linkElement;
-	}
+	module.exports = function() {
+		return new Worker(__webpack_require__.p + "ead928cb015c64830b95.worker.js");
+	};
 
-	function addStyle(obj, options) {
-		var styleElement, update, remove;
+/***/ },
+/* 10 */
+/***/ function(module, exports, __webpack_require__) {
 
-		if (options.singleton) {
-			var styleIndex = singletonCounter++;
-			styleElement = singletonElement || (singletonElement = createStyleElement());
-			update = applyToSingletonTag.bind(null, styleElement, styleIndex, false);
-			remove = applyToSingletonTag.bind(null, styleElement, styleIndex, true);
-		} else if(obj.sourceMap &&
-			typeof URL === "function" &&
-			typeof URL.createObjectURL === "function" &&
-			typeof URL.revokeObjectURL === "function" &&
-			typeof Blob === "function" &&
-			typeof btoa === "function") {
-			styleElement = createLinkElement();
-			update = updateLink.bind(null, styleElement);
-			remove = function() {
-				styleElement.parentNode.removeChild(styleElement);
-				if(styleElement.href)
-					URL.revokeObjectURL(styleElement.href);
-			};
-		} else {
-			styleElement = createStyleElement();
-			update = applyToTag.bind(null, styleElement);
-			remove = function() {
-				styleElement.parentNode.removeChild(styleElement);
-			};
-		}
+	'use strict';
 
-		update(obj);
+	var _createClass = __webpack_require__(4)['default'];
 
-		return function updateStyle(newObj) {
-			if(newObj) {
-				if(newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap)
-					return;
-				update(obj = newObj);
-			} else {
-				remove();
-			}
-		};
-	}
+	var _classCallCheck = __webpack_require__(8)['default'];
 
-	var replaceText = (function () {
-		var textStore = [];
+	var _interopRequireDefault = __webpack_require__(2)['default'];
 
-		return function (index, replacement) {
-			textStore[index] = replacement;
-			return textStore.filter(Boolean).join('\n');
-		};
+	Object.defineProperty(exports, '__esModule', {
+	    value: true
+	});
+
+	var _Util = __webpack_require__(11);
+
+	var _Util2 = _interopRequireDefault(_Util);
+
+	var GridDetect = (function () {
+	    function GridDetect(options) {
+	        _classCallCheck(this, GridDetect);
+
+	        this.size = options.gridSize;
+	        this.imageSize = options.imageSize;
+	        this.workingSize = options.workingSize;
+	        this.cellSize = {
+	            x: this.workingSize.x / this.size.x,
+	            y: this.workingSize.y / this.size.y
+	        };
+
+	        this.pixelDiffThreshold = options.pixelDiffThreshold;
+	        this.movementThreshold = options.movementThreshold;
+
+	        // this.frameDiff = Util.time(this.frameDiff, this);
+	    }
+
+	    _createClass(GridDetect, [{
+	        key: 'detect',
+	        value: function detect(frames) {
+	            // diff frames
+	            var diff = this.frameDiff(frames.prev, frames.curr);
+
+	            // if no valid diff
+	            if (!diff) {
+	                return;
+	            };
+
+	            // total pixels in frame
+	            var totalPix = diff.imageData.data.length / 4;
+	            // if not enough movement
+	            if (diff.count / totalPix < this.movementThreshold) {
+	                return false;
+	            }
+
+	            // else return movement in grid
+	            return this.detectGrid(diff.imageData);
+	        }
+
+	        // given pixels of diff, bucket num of pixels diff into cells in grid
+	    }, {
+	        key: 'detectGrid',
+	        value: function detectGrid(imageData) {
+
+	            var pixels = imageData.data;
+	            var results = new Int32Array(this.size.x * this.size.y);
+
+	            // for each pixel, determine which quadrant it belongs to
+	            var i = 0;
+	            var j = undefined,
+	                px = undefined,
+	                py = undefined,
+	                gx = undefined,
+	                gy = undefined,
+	                exists = undefined;
+	            while (i < pixels.length / 4) {
+	                px = i % this.workingSize.x;
+	                py = Math.floor(i / this.workingSize.x);
+
+	                gy = Math.floor(px / this.cellSize.x);
+	                gx = Math.floor(py / this.cellSize.y);
+
+	                if (pixels[i * 4] == 255) {
+	                    var ri = gx * this.size.x + gy;
+	                    results[ri] += 1;
+	                }
+
+	                i++;
+	            }
+	            return results;
+	        }
+
+	        // bitwise absolute and threshold
+	        // from https://www.adobe.com/devnet/archive/html5/articles/javascript-motion-detection.html
+	    }, {
+	        key: 'makeThresh',
+	        value: function makeThresh(min) {
+	            return function (value) {
+	                return (value ^ value >> 31) - (value >> 31) > min ? 255 : 0;
+	            };
+	        }
+
+	        // diff two frames, return pixel diff data, boudning box of movement and count
+	    }, {
+	        key: 'frameDiff',
+	        value: function frameDiff(prev, curr) {
+	            if (prev == null || curr == null) {
+	                return false;
+	            };
+
+	            var avgP = undefined,
+	                avgC = undefined,
+	                diff = undefined,
+	                j = undefined,
+	                i = undefined;
+	            var p = prev.data;
+	            var c = curr.data;
+	            var thresh = this.makeThresh(this.pixelDiffThreshold);
+
+	            // thresholding function
+	            var pixels = new Uint8ClampedArray(p.length);
+
+	            var count = 0;
+
+	            // for each pixel, find if average excees thresh
+	            i = 0;
+	            while (i < p.length / 4) {
+	                j = i * 4;
+
+	                avgC = 0.2126 * c[j] + 0.7152 * c[j + 1] + 0.0722 * c[j + 2];
+	                avgP = 0.2126 * p[j] + 0.7152 * p[j + 1] + 0.0722 * p[j + 2];
+
+	                diff = thresh(avgC - avgP);
+
+	                pixels[j + 3] = diff;
+
+	                // if there is a difference, update bounds
+	                if (diff) {
+	                    pixels[j] = diff;
+
+	                    // count pix movement
+	                    count++;
+	                }
+
+	                i++;
+	            }
+
+	            return {
+	                count: count,
+	                imageData: new ImageData(pixels, this.workingSize.x) };
+	        }
+	    }]);
+
+	    return GridDetect;
 	})();
 
-	function applyToSingletonTag(styleElement, index, remove, obj) {
-		var css = remove ? "" : obj.css;
+	exports['default'] = GridDetect;
+	module.exports = exports['default'];
 
-		if (styleElement.styleSheet) {
-			styleElement.styleSheet.cssText = replaceText(index, css);
-		} else {
-			var cssNode = document.createTextNode(css);
-			var childNodes = styleElement.childNodes;
-			if (childNodes[index]) styleElement.removeChild(childNodes[index]);
-			if (childNodes.length) {
-				styleElement.insertBefore(cssNode, childNodes[index]);
-			} else {
-				styleElement.appendChild(cssNode);
-			}
-		}
-	}
+/***/ },
+/* 11 */
+/***/ function(module, exports, __webpack_require__) {
 
-	function applyToTag(styleElement, obj) {
-		var css = obj.css;
-		var media = obj.media;
-		var sourceMap = obj.sourceMap;
+	'use strict';
 
-		if(media) {
-			styleElement.setAttribute("media", media)
-		}
+	var _createClass = __webpack_require__(4)['default'];
 
-		if(styleElement.styleSheet) {
-			styleElement.styleSheet.cssText = css;
-		} else {
-			while(styleElement.firstChild) {
-				styleElement.removeChild(styleElement.firstChild);
-			}
-			styleElement.appendChild(document.createTextNode(css));
-		}
-	}
+	var _classCallCheck = __webpack_require__(8)['default'];
 
-	function updateLink(linkElement, obj) {
-		var css = obj.css;
-		var media = obj.media;
-		var sourceMap = obj.sourceMap;
+	Object.defineProperty(exports, '__esModule', {
+	    value: true
+	});
 
-		if(sourceMap) {
-			// http://stackoverflow.com/a/26603875
-			css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
-		}
+	var Util = (function () {
+	    function Util() {
+	        _classCallCheck(this, Util);
+	    }
 
-		var blob = new Blob([css], { type: "text/css" });
+	    _createClass(Util, null, [{
+	        key: 'time',
 
-		var oldSrc = linkElement.href;
+	        // returns function that times it's execution
+	        value: function time(f, scope) {
+	            var start = undefined,
+	                end = undefined;
 
-		linkElement.href = URL.createObjectURL(blob);
+	            return (function () {
+	                start = new Date();
+	                var res = f.apply(this, arguments);
+	                end = new Date();
+	                console.log('time', end - start);
 
-		if(oldSrc)
-			URL.revokeObjectURL(oldSrc);
-	}
+	                return res;
+	            }).bind(scope);
+	        }
+	    }]);
 
+	    return Util;
+	})();
+
+	exports['default'] = Util;
+	module.exports = exports['default'];
+
+/***/ },
+/* 12 */
+/***/ function(module, exports) {
+
+	// removed by extract-text-webpack-plugin
 
 /***/ }
 /******/ ]);
