@@ -1,4 +1,5 @@
 import 'styles/style.scss' 
+import MotionDetect from './components/MotionDetect' 
 
 const options = {
     gridSize: {
