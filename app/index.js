@@ -1,3 +1,4 @@
+import MotionDetect from './components/MotionDetect' 
 import 'styles/style.scss' 
 import MotionDetect from './components/MotionDetect' 
 
