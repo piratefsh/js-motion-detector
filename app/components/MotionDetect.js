@@ -103,7 +103,7 @@ export default class MotionDetect{
         const onGetUserMediaError = (e) => { console.error(e); };
 
         // configure getusermedia
-        navigator.getUserMedia = navigator.mediaDevices.getUserMedia ||  navigator.getUserMedia || navigator.mozGetUserMedia ||
+        navigator.getUserMedia =  navigator.getUserMedia || navigator.mozGetUserMedia ||
         navigator.webkitGetUserMedia || navigator.msGetUserMedia;
 
         const options = {
