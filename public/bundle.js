@@ -63,20 +63,21 @@
 
 	var options = {
 	    gridSize: {
-	        x: 16 * 2,
-	        y: 12 * 2
+	        x: 6 * 4,
+	        y: 4 * 4
 	    },
 	    debug: true,
 	    pixelDiffThreshold: 0.3,
 	    movementThreshold: 0.0012,
-	    fps: 30
+	    fps: 30,
+	    canvasOutputElem: document.getElementById('dest')
 	};
 
 	var overlay = document.getElementById('overlay');
 	var ctx = overlay.getContext('2d');
 	var timeoutClear = undefined;
 
-	var md = new _componentsMotionDetect2['default']('src', 'dest', options);
+	var md = new _componentsMotionDetect2['default']('src', options);
 
 	// on motion detected, draw grid
 	md.onDetect(function (other, data) {
@@ -92,6 +93,7 @@
 	    var cs = data.gd.cellSize;
 	    var csActualRatio = data.gd.actualCellSizeRatio;
 
+	    // scale up cell size
 	    var cellArea = cs.x * cs.y;
 	    cs.x *= csActualRatio;
 	    cs.y *= csActualRatio;
@@ -163,18 +165,31 @@
 	var _Util2 = _interopRequireDefault(_Util);
 
 	var MotionDetect = (function () {
-	    function MotionDetect(srcId, dstId, options) {
+	    function MotionDetect(srcId, options) {
 	        _classCallCheck(this, MotionDetect);
 
 	        // constants
 	        this.MAX_PIX_VAL = 255;
 
+	        // defaults for options
+	        this.defaults = {
+	            fps: 30,
+	            gridSize: {
+	                x: 6,
+	                y: 4
+	            },
+	            pixelDiffThreshold: 0.4,
+	            movementThreshold: 0.001,
+	            debug: false,
+	            canvasOutputElem: document.createElement('canvas')
+	        };
+
 	        // setup video
 	        this.video = document.getElementById(srcId);
-	        this.fps = options.fps || 30;
+	        this.fps = options.fps || this.defaults.fps;
 
 	        // setup canvas
-	        this.canvas = document.getElementById(dstId);
+	        this.canvas = options.canvasOutputElem || this.defaults.canvasOutputElem;
 	        this.ctx = this.canvas.getContext('2d');
 
 	        // shadow canvas to draw video frames before processing
@@ -206,7 +221,7 @@
 	        };
 
 	        // griddetector size
-	        this.gdSize = options.gridSize;
+	        this.gdSize = options.gridSize || this.defaults.gridSize;
 
 	        // size canvas
 	        this.resize(this.size.x, this.size.y);
@@ -220,13 +235,12 @@
 	        };
 
 	        // set difference threshold
-	        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || 0.4);
+	        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || this.defaults.pixelDiffThreshold);
 
 	        // how much of ratio of movement to be not negligible
-	        this.movementThreshold = options.movementThreshold || 0.01;
+	        this.movementThreshold = options.movementThreshold || this.movementThreshold;
 
-	        this.spawnGridDetector = _Util2['default'].time(this.spawnGridDetector, this);
-
+	        // this.spawnGridDetector = this.time(this.spawnGridDetector);
 	        if (options.debug) this.debug();
 	        this.pause = false;
 	    }
@@ -256,7 +270,7 @@
 	            };
 
 	            // configure getusermedia
-	            navigator.getUserMedia = navigator.mediaDevices.getUserMedia || navigator.getUserMedia || navigator.mozGetUserMedia || navigator.webkitGetUserMedia || navigator.msGetUserMedia;
+	            navigator.getUserMedia = navigator.getUserMedia || navigator.mozGetUserMedia || navigator.webkitGetUserMedia || navigator.msGetUserMedia;
 
 	            var options = {
 	                video: {
@@ -489,7 +503,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = function() {
-		return new Worker(__webpack_require__.p + "ead928cb015c64830b95.worker.js");
+		return new Worker(__webpack_require__.p + "239c3e9f583fc558264d.worker.js");
 	};
 
 /***/ },
@@ -543,6 +557,7 @@
 
 	            // total pixels in frame
 	            var totalPix = diff.imageData.data.length / 4;
+
 	            // if not enough movement
 	            if (diff.count / totalPix < this.movementThreshold) {
 	                return false;
@@ -582,6 +597,7 @@
 
 	                i++;
 	            }
+
 	            return results;
 	        }
 
