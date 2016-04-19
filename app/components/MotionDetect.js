@@ -4,16 +4,29 @@ import Util from './Util';
 
 export default class MotionDetect{
 
-    constructor(srcId, dstId, options) {
+    constructor(srcId, options) {
         // constants
         this.MAX_PIX_VAL = 255;
 
+        // defaults for options
+        this.defaults = {
+            fps: 30,
+            gridSize: {
+                x: 6,
+                y: 4
+            },
+            pixelDiffThreshold: 0.4,
+            movementThreshold: 0.001,
+            debug: false,
+            canvasOutputElem: document.createElement('canvas')
+        }
+
         // setup video
         this.video = document.getElementById(srcId);
-        this.fps = options.fps || 30;
+        this.fps = options.fps || this.defaults.fps;
 
         // setup canvas
-        this.canvas = document.getElementById(dstId);
+        this.canvas = options.canvasOutputElem || this.defaults.canvasOutputElem;
         this.ctx = this.canvas.getContext('2d');
 
         // shadow canvas to draw video frames before processing
@@ -45,7 +58,7 @@ export default class MotionDetect{
         };
 
         // griddetector size
-        this.gdSize = options.gridSize;
+        this.gdSize = options.gridSize || this.defaults.gridSize;
 
         // size canvas
         this.resize(this.size.x, this.size.y);
@@ -59,13 +72,12 @@ export default class MotionDetect{
         };
 
         // set difference threshold
-        this.pixelDiffThreshold = 255*(options.pixelDiffThreshold || 0.4);
-        
+        this.pixelDiffThreshold = 255 * (options.pixelDiffThreshold || this.defaults.pixelDiffThreshold);
+
         // how much of ratio of movement to be not negligible
-        this.movementThreshold = options.movementThreshold || 0.01;
+        this.movementThreshold = options.movementThreshold || this.movementThreshold;
 
-        this.spawnGridDetector = Util.time(this.spawnGridDetector, this);
-
+        // this.spawnGridDetector = this.time(this.spawnGridDetector);
         if (options.debug) this.debug();
         this.pause = false;
     }
@@ -91,7 +103,7 @@ export default class MotionDetect{
         const onGetUserMediaError = (e) => { console.error(e); };
 
         // configure getusermedia
-        navigator.getUserMedia = navigator.mediaDevices.getUserMedia ||  navigator.getUserMedia || navigator.mozGetUserMedia ||
+        navigator.getUserMedia =  navigator.getUserMedia || navigator.mozGetUserMedia ||
         navigator.webkitGetUserMedia || navigator.msGetUserMedia;
 
         const options = {
@@ -176,12 +188,11 @@ export default class MotionDetect{
         this.onDetectCallback = fn;
     }
 
-
     // spawn worker thread to do detection
     spawnGridDetector(imageData) {
         // do nothing if no prev frame
-        if(! this.frames.prev ) {return; }
-        
+        if (!this.frames.prev) {return; }
+
         const worker = new GridDetectWorker();
 
         // create worker thread
@@ -203,7 +214,7 @@ export default class MotionDetect{
 
         worker.onmessage = (e) => {
             // if has data to return, fire callback
-            if(e.data){
+            if (e.data) {
                 this.onDetectCallback(this.ctx, e.data);
             }
         };

@@ -12,7 +12,7 @@ export default class GridDetect{
 
         this.pixelDiffThreshold = options.pixelDiffThreshold;
         this.movementThreshold = options.movementThreshold;
-        
+
         // this.frameDiff = Util.time(this.frameDiff, this);
     }
 
@@ -25,6 +25,7 @@ export default class GridDetect{
 
         // total pixels in frame
         const totalPix = diff.imageData.data.length / 4;
+
         // if not enough movement
         if (diff.count / totalPix < this.movementThreshold) {
             return false;
@@ -57,6 +58,7 @@ export default class GridDetect{
 
             i++;
         }
+
         return results;
     }
 
